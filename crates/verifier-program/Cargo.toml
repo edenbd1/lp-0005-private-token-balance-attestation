@@ -1,0 +1,16 @@
+[package]
+name = "attestation-verifier-program"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "LEZ on-chain verifier program (SPEL) for LP-0005 attestation credentials."
+
+[dependencies]
+attestation-core = { path = "../attestation-core", default-features = false, features = ["std"] }
+serde = { workspace = true, features = ["std"] }
+sha2 = { workspace = true, features = ["std"] }
+k256 = { version = "0.13", features = ["ecdsa"] }
+# Logos integration deps (SPEL framework, nssa core) are pulled in only when this
+# crate is compiled inside a Logos workspace. Local builds skip them.
+# See docs/decisions/002-verifier-program-shape.md for the planned wiring.

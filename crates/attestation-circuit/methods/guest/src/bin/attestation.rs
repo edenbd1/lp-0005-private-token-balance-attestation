@@ -1,38 +1,49 @@
-// Baseline LP-0005 attestation guest.
+// LP-0005 attestation guest, v1.
 //
-// At this stage the circuit performs the load-bearing crypto work so we can
-// measure proving cost on the real Risc0 prover (`RISC0_DEV_MODE=0`):
-//   1. read private inputs + public params
-//   2. reconstruct the LEZ private-account commitment
-//   3. fold a Merkle path to a root
-//   4. assert `balance >= threshold`
-//   5. commit the public journal
+// Statements proved (all in zero-knowledge):
+//   1. account_id = SHA256(PRIVATE_ACCOUNT_ID_PREFIX || npk || identifier_LE)
+//   2. commitment = SHA256(COMMITMENT_PREFIX || account_id || program_owner_LE
+//                          || balance_LE || nonce_LE || data_hash)
+//   3. SHA256(commitment) folds via `merkle_path` to `merkle_root` at `leaf_index`
+//   4. balance >= threshold
+//   5. nullifier = SHA256(NULLIFIER_PREFIX || presenter_pubkey || context_id || account_id)
 //
-// Identity binding (signature of a verifier-supplied challenge) and `npk`->`account_id`
-// derivation are deferred to a follow-up commit; the cost numbers below already cover
-// the dominant SHA-256 work.
+// Public journal: `PublicJournal { merkle_root, threshold, context_id,
+//                                  presenter_pubkey, nullifier }`.
+// Private witness: `PrivateInputs { npk, identifier, program_owner, balance,
+//                                   nonce, data_hash, merkle_path, leaf_index }`.
+//
+// Identity binding is enforced *outside* the circuit at presentation time: the
+// presenter must sign a verifier-supplied challenge under `presenter_pubkey`.
 
 #![no_main]
 
 risc0_zkvm::guest::entry!(main);
 
-use attestation_core::{compute_commitment, fold_merkle_path, PrivateInputs, PublicJournal};
+use attestation_core::{
+    compute_commitment, compute_nullifier, derive_account_id, fold_merkle_path,
+    PrivateInputs, PublicJournal,
+};
 use risc0_zkvm::guest::env;
 
 fn main() {
     let priv_in: PrivateInputs = env::read();
-    let mut pub_out: PublicJournal = env::read();
+    // The host writes the journal stub with merkle_root, threshold, context_id,
+    // presenter_pubkey; nullifier is filled in by the circuit.
+    let mut journal: PublicJournal = env::read();
+
+    let account_id = derive_account_id(&priv_in.npk, priv_in.identifier);
 
     let leaf_commitment = compute_commitment(
-        &priv_in.account_id,
+        &account_id,
         &priv_in.program_owner,
         priv_in.balance,
         priv_in.nonce,
         &priv_in.data_hash,
     );
 
-    // Leaves are SHA256-hashed once before insertion in the commitment set
-    // (lez/nssa/src/merkle_tree/mod.rs:146-157).
+    // LEZ hashes leaves once before insertion into the commitment set
+    // (_external/lez/nssa/src/merkle_tree/mod.rs:146-157).
     let leaf_hash = {
         use sha2::{Digest, Sha256};
         let mut h = Sha256::new();
@@ -42,21 +53,17 @@ fn main() {
 
     let recovered_root = fold_merkle_path(&leaf_hash, priv_in.leaf_index, &priv_in.merkle_path);
     assert_eq!(
-        recovered_root, pub_out.merkle_root,
+        recovered_root, journal.merkle_root,
         "merkle path does not anchor to the claimed root",
     );
 
     assert!(
-        priv_in.balance >= pub_out.threshold,
+        priv_in.balance >= journal.threshold,
         "balance is below the attested threshold",
     );
 
-    // Echo the public params back into the journal so on-chain & off-chain verifiers
-    // both see exactly what was attested. Threshold/context/presenter_pubkey are passed
-    // in by the host and re-committed here to bind them into the proof.
-    env::commit(&pub_out);
+    journal.nullifier =
+        compute_nullifier(&journal.presenter_pubkey, &journal.context_id, &account_id);
 
-    // Suppress unused_mut on `pub_out` — we may mutate it later when we add
-    // derived journal fields (e.g., a nullifier).
-    let _ = &mut pub_out;
+    env::commit(&journal);
 }

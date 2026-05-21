@@ -1,0 +1,21 @@
+[package]
+name = "attestation-sdk"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Client SDK for generating LP-0005 attestation credentials."
+
+[dependencies]
+attestation-core = { path = "../attestation-core", default-features = false, features = ["std"] }
+attestation-methods = { path = "../attestation-circuit/methods" }
+attestation-verifier-offchain = { path = "../verifier-offchain" }
+risc0-zkvm = { workspace = true, features = ["std", "client"] }
+serde = { workspace = true, features = ["std"] }
+sha2 = { workspace = true, features = ["std"] }
+k256 = { version = "0.13", features = ["ecdsa"] }
+rand_core = { version = "0.6", features = ["std"] }
+rand = "0.8"
+anyhow = { workspace = true }
+hex = { workspace = true }
+thiserror = "1"

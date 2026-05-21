@@ -28,6 +28,9 @@ build/
 # Logs
 *.log
 
+# Demo artifacts (regenerable)
+artifacts/
+
 # External repos cloned for recon (not part of submission)
 _external/
 

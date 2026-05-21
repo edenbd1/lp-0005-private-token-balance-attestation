@@ -1,0 +1,35 @@
+name: Proving benchmark (nightly)
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  bench:
+    # Real STARK proving is CPU-heavy; pin to a larger runner if your billing allows.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install rzup
+        run: |
+          curl -L https://risczero.com/install | bash
+          echo "$HOME/.risc0/bin" >> $GITHUB_PATH
+
+      - run: |
+          rzup install cargo-risczero 3.0.5
+          rzup install r0vm 3.0.5
+          rzup install rust 1.88.0
+
+      - run: cargo build --release -p attestation-circuit --bin baseline
+
+      - name: Real-proving baseline
+        env:
+          RISC0_DEV_MODE: "0"
+        run: ./target/release/baseline | tee bench.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bench
+          path: bench.txt

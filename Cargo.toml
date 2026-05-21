@@ -4,6 +4,10 @@ members = [
     "crates/attestation-core",
     "crates/attestation-circuit",
     "crates/attestation-circuit/methods",
+    "crates/verifier-offchain",
+    "crates/sdk",
+    "crates/cli",
+    "crates/verifier-program",
 ]
 # The guest crate uses the riscv32im-risc0-zkvm-elf toolchain; excluding it
 # from the workspace keeps the host crates on stable host targets.

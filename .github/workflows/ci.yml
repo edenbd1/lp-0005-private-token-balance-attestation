@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install rzup (Risc0 toolchain manager)
+        run: |
+          curl -L https://risczero.com/install | bash
+          echo "$HOME/.risc0/bin" >> $GITHUB_PATH
+
+      - name: Install pinned Risc0 toolchain (3.0.5)
+        run: |
+          rzup install cargo-risczero 3.0.5
+          rzup install r0vm 3.0.5
+          rzup install rust 1.88.0
+          # Risc0 symlinks its rust binary into ~/.cargo/bin/cargo-risczero;
+          # we just rely on cargo-risczero to compile the guest under the right toolchain.
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-${{ runner.os }}-${{ hashFiles('**/Cargo.toml') }}
+
+      - name: Build host crates (release)
+        run: cargo build --release --workspace
+
+      - name: Test host crates
+        # Skips end-to-end real-proving tests; those run nightly to control CI cost.
+        run: cargo test --workspace --release -- --skip e2e_real_proof
+
+      - name: Smoke test (DEV_MODE=1, no real proof)
+        env:
+          RISC0_DEV_MODE: "1"
+        run: ./target/release/baseline

@@ -17,6 +17,24 @@ Numbers from the harness at `crates/attestation-circuit/src/bin/baseline.rs`.
 | `RISC0_DEV_MODE=1` (no proof, sanity) | 46 ms | 892 | 0.3 ms |
 | `RISC0_DEV_MODE=0` (real STARK) | **6.24 s** | **300,609** | **10.3 ms** |
 
+## Numbers (2026-05-22 — guest v1: + npk derivation + nullifier)
+
+| Mode | Prove time | Receipt bytes | Verify time |
+|---|---|---|---|
+| `RISC0_DEV_MODE=0` (real STARK) | **7.08 s** | **300,863** | **10.2 ms** |
+
+Δ vs baseline: +0.84 s proving (one extra SHA block for `account_id` derivation + one for the nullifier — well within the headroom budgeted). Receipt size unchanged within rounding.
+
+## End-to-end CLI demo (`scripts/demo.sh`, RISC0_DEV_MODE=0)
+
+| Step | Time | Notes |
+|---|---|---|
+| `attest keygen` | ms | secp256k1, persisted as 32-byte hex |
+| `attest prove` | **6.47 s** | identical guest v1 |
+| `attest verify` | < 50 ms | Risc0 verify + ECDSA verify |
+
+Credential file size: 300,861 bytes. Confirms the off-chain transport choice (Groth16 wrap) from ADR-001 remains necessary.
+
 ## Reads
 
 - **Proving cost is well below the LEZ team's published `auth_transfer Transfer` baseline** (13.7 s standalone in `_external/lez/docs/benchmarks/cycle_bench.md`). Our circuit is lighter — primarily 5 SHA blocks for commitment + 5 for the Merkle path + 1 for the leaf hash.

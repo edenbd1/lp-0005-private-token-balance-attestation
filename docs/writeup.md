@@ -1,4 +1,6 @@
-# LP-0005 — Submission write-up (draft)
+# LP-0005 — Submission write-up
+
+> **Auditing this against the prize?** Jump to [`criteria-checklist.md`](./criteria-checklist.md) for a per-line table of every success criterion mapped to the artifact that addresses it.
 
 ## What we built
 
@@ -24,7 +26,31 @@ All five constants and byte layouts are pinned by regression tests against LEZ v
 
 ## Commitment-format reconciliation
 
-The prize text writes the LEZ commitment as `SHA256(npk || program_owner || balance || nonce || SHA256(data))`. The actual code (`_external/lez/nssa/core/src/commitment.rs`) uses a 32-byte domain separator and binds to `account_id`, not directly to `npk`. We follow the code — the regression tests demonstrate byte-for-byte compatibility. The circuit witnesses `(npk, identifier)` and proves the derivation, so `npk` is never in the journal.
+The prize text writes the LEZ commitment as
+
+```
+SHA256(npk || program_owner || balance || nonce || SHA256(data))
+```
+
+The actual code in `_external/lez/nssa/core/src/commitment.rs:51-78` produces
+
+```
+SHA256(
+    "/LEE/v0.3/Commitment/" || 11×\0     // 32-byte domain separator
+    || account_id                        // 32 bytes
+    || program_owner (8 × u32 LE)        // 32 bytes
+    || balance (u128 LE)                 // 16 bytes
+    || nonce (u128 LE)                   // 16 bytes
+    || SHA256(data)                      // 32 bytes
+)
+```
+
+Two divergences from the prize text:
+
+1. A 32-byte domain separator (the prize cites the formula without it).
+2. The first hashed field is `account_id`, not `npk`. `account_id = SHA256(PRIVATE_ACCOUNT_ID_PREFIX ‖ npk ‖ identifier_LE)` — `npk` derives `account_id`, but is not itself in the commitment.
+
+**We follow the code.** Following the prize text literally would produce a hash that does not match anything on-chain. Our regression test reproduces `DUMMY_COMMITMENT` (`_external/lez/nssa/core/src/commitment.rs:55-70`) byte-for-byte; if our format ever drifts, the test fails. The circuit witnesses `(npk, identifier)` privately and reconstructs `account_id` in-circuit so `npk` never leaves the prover.
 
 ## Context binding
 

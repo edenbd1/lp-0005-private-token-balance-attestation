@@ -39,6 +39,15 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/edenbd1/lp-0005-private-token-balance-attestation"
 
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+# Demos and tests intentionally use unwrap/expect for clarity.
+unwrap_used = "allow"
+expect_used = "allow"
+
 [profile.release]
 debug = 1
 lto = true

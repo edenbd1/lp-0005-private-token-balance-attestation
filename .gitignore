@@ -1,0 +1,29 @@
+# Rust
+/target/
+**/target/
+**/*.rs.bk
+Cargo.lock.bak
+
+# Risc0
+.risc0/
+*.bin
+
+# Editors & OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Env
+.env
+.env.local
+*.local
+
+# Node (for any GUI tooling)
+node_modules/
+dist/
+build/
+
+# Logs
+*.log

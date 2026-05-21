@@ -637,6 +637,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
 
 [[package]]
+name = "chat-gate"
+version = "0.1.0"
+dependencies = [
+ "attestation-core",
+ "attestation-sdk",
+ "attestation-verifier-offchain",
+ "attestation-verifier-program",
+ "k256",
+ "rand 0.8.6",
+ "risc0-zkvm",
+ "serde",
+ "sha2",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "chrono"
 version = "0.4.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"

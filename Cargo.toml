@@ -9,6 +9,7 @@ members = [
     "crates/cli",
     "crates/verifier-program",
     "integrations/governance-gate",
+    "integrations/chat-gate",
 ]
 # The guest crate uses the riscv32im-risc0-zkvm-elf toolchain; excluding it
 # from the workspace keeps the host crates on stable host targets.

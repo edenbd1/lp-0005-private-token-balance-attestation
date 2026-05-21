@@ -10,6 +10,10 @@
 | [faq.md](./faq.md) | Common questions |
 | [glossary.md](./glossary.md) | LEZ / SPEL / Risc0 / LP-0005 terminology |
 | [whats-left.md](./whats-left.md) | Open scope before submission |
+| [criteria-checklist.md](./criteria-checklist.md) | Every prize success criterion → artifact mapping |
+| [error-codes.md](./error-codes.md) | Deterministic error codes for both verifiers |
+| [acknowledgments.md](./acknowledgments.md) | Upstream prior art |
+| [benchmarks/cu-budget.md](./benchmarks/cu-budget.md) | Planned on-chain CU measurement table |
 | [sequencer-client-plan.md](./sequencer-client-plan.md) | Plan for the sequencer-client crate |
 | [writeup.md](./writeup.md) | Draft submission write-up |
 | [benchmarks/baseline.md](./benchmarks/baseline.md) | Proving / verification numbers |

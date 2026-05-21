@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    name: Build host workspace
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: clippy, rustfmt
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-host-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+
+      # We build the non-Risc0 crates only. The guest needs the rzup-managed
+      # riscv32im toolchain; that runs in the separate `proving-bench` workflow
+      # on demand. Excluding the guest-bearing crates keeps default CI fast.
+      - name: Build host crates (release)
+        run: |
+          cargo build --release \
+            -p attestation-core \
+            -p attestation-verifier-program \
+            -p attestation-sequencer-client \
+            -p attestation-delivery-transport \
+            -p governance-gate \
+            -p premium-features
+
+      - name: Unit tests (skip real proving)
+        run: |
+          cargo test --release \
+            -p attestation-core \
+            -p attestation-verifier-program \
+            -p governance-gate \
+            -p premium-features
+
+      - name: Fmt
+        run: cargo fmt --all -- --check
+
+  guest:
+    name: Build & test guest + e2e (RISC0_DEV_MODE=1)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Install rzup + pinned Risc0 toolchain
+        run: |
+          curl -L https://risczero.com/install | bash
+          echo "$HOME/.risc0/bin" >> $GITHUB_PATH
+          $HOME/.risc0/bin/rzup install cargo-risczero 3.0.5
+          $HOME/.risc0/bin/rzup install r0vm           3.0.5
+          $HOME/.risc0/bin/rzup install rust           1.88.0
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-guest-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build full workspace (release)
+        run: cargo build --release --workspace
+
+      - name: Smoke test (RISC0_DEV_MODE=1)
+        env:
+          RISC0_DEV_MODE: "1"
+        run: ./target/release/baseline

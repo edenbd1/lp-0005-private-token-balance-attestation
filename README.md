@@ -34,11 +34,37 @@ Two verification paths over a single proof format:
 
 ### Targeted commitment format
 
-The circuit targets the existing LEZ private account commitment format used by the [LEZ token program](https://github.com/logos-blockchain/logos-execution-zone/tree/main/programs/token):
+The circuit targets the **real** LEZ private account commitment format as defined in `nssa/core/src/commitment.rs`:
 
 ```
-commitment = SHA256(npk || program_owner || balance || nonce || SHA256(data))
+commitment = SHA256(
+    "/LEE/v0.3/Commitment/" || 11×\0     // 32-byte domain separator
+    || account_id                         // 32 bytes
+    || program_owner                      // 32 bytes (8 × u32 LE)
+    || balance                            // 16 bytes (u128 LE)
+    || nonce                              // 16 bytes (u128 LE)
+    || SHA256(data)                       // 32 bytes
+)
 ```
+
+The prize description elides the domain separator and writes `npk` where the code uses `account_id`. The circuit follows the on-chain code. `account_id` is derived from `(npk, identifier)` via `AccountId::for_regular_private_account` (or the PDA variant), and the circuit witnesses `npk` and proves that derivation — `npk` is never revealed.
+
+### Two verification paths, two compositions
+
+We ship both architectures so the same primitive serves on-chain and off-chain use cases without compromise:
+
+| Path | How proofs flow | Why |
+|---|---|---|
+| **On-chain (chained-call)** | Our attestation circuit is a LEZ program; the verifier program calls it through `env::verify(program_id, journal)` (Risc0 assumption mechanism). | Idiomatic LEZ; cheapest path; integrates with the privacy-preserving outer proof. |
+| **Off-chain (portable receipt)** | Generate a `Receipt`, wrap it in a Groth16 succinct proof (≈ 256 bytes), transmit via Logos Messaging, verify locally. | Logos Messaging default `maxMessageSize` ≈ 150 KB; raw Risc0 inner-receipt ≈ 224 KB. Groth16 wrap gives us a small self-contained credential. |
+
+### Context binding
+
+Each proof commits to a public `context_id` (program ID, group ID, or application identifier) to prevent replay across gates.
+
+### Identity binding (presenter-bound proofs)
+
+A proof commits publicly to a `presenter_pubkey`. The presenter must sign a verifier-supplied nonce with the corresponding private key to be accepted. This prevents a third party who obtains a proof from using it as their own. We use a standard ECDSA pubkey (Risc0 has a native accelerator) rather than a Poseidon-based RLN-style id-commitment, to avoid paying Poseidon cycles on top of the SHA-256-heavy commitment reconstruction.
 
 ### Context binding
 

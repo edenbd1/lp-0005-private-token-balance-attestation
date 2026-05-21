@@ -27,3 +27,7 @@ build/
 
 # Logs
 *.log
+
+# External repos cloned for recon (not part of submission)
+_external/
+

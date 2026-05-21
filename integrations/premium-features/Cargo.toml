@@ -18,4 +18,4 @@ thiserror = "1"
 attestation-sdk = { path = "../../crates/sdk" }
 attestation-verifier-program = { path = "../../crates/verifier-program" }
 k256 = { version = "0.13", features = ["ecdsa"] }
-rand = "0.8"
+rand = "0.9"

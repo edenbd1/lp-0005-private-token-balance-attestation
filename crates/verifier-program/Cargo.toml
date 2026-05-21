@@ -16,4 +16,4 @@ k256 = { version = "0.13", features = ["ecdsa"] }
 # See docs/decisions/002-verifier-program-shape.md for the planned wiring.
 
 [dev-dependencies]
-rand = "0.8"
+rand = "0.9"

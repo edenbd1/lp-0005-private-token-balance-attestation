@@ -14,7 +14,7 @@ risc0-zkvm = { workspace = true, features = ["std", "client"] }
 serde = { workspace = true, features = ["std"] }
 sha2 = { workspace = true, features = ["std"] }
 k256 = { version = "0.13", features = ["ecdsa"] }
-rand_core = { version = "0.6", features = ["std"] }
+rand_core = { version = "0.9", features = ["std"] }
 rand = "0.8"
 anyhow = { workspace = true }
 hex = { workspace = true }

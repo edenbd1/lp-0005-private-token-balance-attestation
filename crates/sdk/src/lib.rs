@@ -25,7 +25,6 @@ use attestation_core::{
 use attestation_methods::{ATTESTATION_ELF, ATTESTATION_ID};
 use attestation_verifier_offchain::presenter_challenge_digest;
 use k256::ecdsa::{signature::Signer, Signature, SigningKey};
-use k256::elliptic_curve::sec1::ToEncodedPoint;
 use risc0_zkvm::{default_prover, ExecutorEnv, ProverOpts, Receipt};
 
 pub use attestation_core::{PrivateInputs as Inputs, PublicJournal as Journal};

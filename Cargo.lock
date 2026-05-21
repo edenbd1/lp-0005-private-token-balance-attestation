@@ -1736,6 +1736,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "premium-features"
+version = "0.1.0"
+dependencies = [
+ "attestation-core",
+ "attestation-sdk",
+ "attestation-verifier-offchain",
+ "k256",
+ "rand 0.8.6",
+ "risc0-zkvm",
+ "serde",
+ "sha2",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "prettyplease"
 version = "0.2.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"

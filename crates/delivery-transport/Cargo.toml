@@ -11,6 +11,6 @@ attestation-core = { path = "../attestation-core", default-features = false, fea
 risc0-zkvm = { workspace = true, features = ["std", "client"] }
 serde = { workspace = true, features = ["std"] }
 sha2 = { workspace = true, features = ["std"] }
-thiserror = "1"
+thiserror = "2"
 async-trait = "0.1"
 bincode = { version = "2", features = ["serde"] }

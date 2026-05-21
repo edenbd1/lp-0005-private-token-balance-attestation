@@ -1,0 +1,8 @@
+* text=auto eol=lf
+
+# Build artifacts shouldn't be diffed
+*.bin binary
+*.elf binary
+
+# Markdown line endings
+*.md text eol=lf

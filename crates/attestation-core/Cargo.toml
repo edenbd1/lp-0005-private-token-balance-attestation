@@ -16,3 +16,6 @@ sha2 = { workspace = true }
 [features]
 default = ["std"]
 std = ["serde/std", "hex/std"]
+
+[dev-dependencies]
+bincode = { version = "2", features = ["serde"] }

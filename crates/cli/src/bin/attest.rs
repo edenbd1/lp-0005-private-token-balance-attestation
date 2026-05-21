@@ -35,6 +35,8 @@ enum Cmd {
         #[arg(long)]
         credential: PathBuf,
     },
+    /// Verifier-side: generate a fresh challenge nonce (32 bytes hex).
+    Challenge,
     /// Generate an attestation credential.
     /// Uses synthesized account state — for demos. Real flow consumes a sequencer
     /// `get_proof_for_commitment` response and a wallet-held private account.
@@ -65,6 +67,11 @@ enum Cmd {
 
 fn main() -> Result<()> {
     match Cli::parse().cmd {
+        Cmd::Challenge => {
+            let mut nonce = [0u8; 32];
+            rand::Rng::fill(&mut rand::thread_rng(), &mut nonce);
+            println!("{}", hex::encode(nonce));
+        }
         Cmd::Keygen { out } => {
             // Generate a fresh seed and derive the signing key from it so we can persist
             // a 32-byte secret. A production CLI would AEAD-encrypt under a passphrase.

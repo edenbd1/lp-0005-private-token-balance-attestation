@@ -12,7 +12,7 @@
 use attestation_core::PublicJournal;
 use attestation_verifier_program::{check_gate, GateError, GateInputs};
 
-pub const GOVERNANCE_CONTEXT_ID: [u8; 32] = *b"/lp-0005/integ/governance-v1/\0\0\0\0";
+pub const GOVERNANCE_CONTEXT_ID: [u8; 32] = *b"/lp-0005/integ/governance-v1/\0\0\0";
 
 #[derive(Debug, thiserror::Error)]
 pub enum VoteError {

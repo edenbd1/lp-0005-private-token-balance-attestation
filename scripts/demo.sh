@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# End-to-end LP-0005 demo: keygen → prove → verify.
+# End-to-end LP-0005 demo: keygen → prove → challenge / sign-challenge / verify.
 #
 # Modes:
 #   SEQUENCER_URL unset (default) — uses synthesized account state, suitable for
@@ -37,16 +37,16 @@ else
 fi
 echo
 
-echo "[1/4] building..."
+echo "[1/5] building..."
 cargo build --release -p attestation-cli --bin attest 1>/dev/null
 
 ATTEST="$ROOT/target/release/attest"
 
-echo "[2/4] keygen..."
+echo "[2/5] keygen..."
 "$ATTEST" keygen --out "$ARTIFACTS/presenter.json"
 
 echo
-echo "[3/4] prove: balance=1000000, threshold=100000, context='$CTX'..."
+echo "[3/5] prove: balance=1000000, threshold=100000, context='$CTX'..."
 "$ATTEST" prove \
   --presenter "$ARTIFACTS/presenter.json" \
   --balance   1000000 \
@@ -55,12 +55,25 @@ echo "[3/4] prove: balance=1000000, threshold=100000, context='$CTX'..."
   --out       "$ARTIFACTS/credential.bin"
 
 echo
-echo "[4/4] verify..."
-"$ATTEST" verify \
+echo "[4/5] verifier draws a challenge nonce..."
+NONCE=$("$ATTEST" challenge)
+echo "  nonce:     $NONCE"
+echo
+echo "  prover signs the challenge..."
+SIG=$("$ATTEST" sign-challenge \
   --credential "$ARTIFACTS/credential.bin" \
   --presenter  "$ARTIFACTS/presenter.json" \
+  --nonce      "$NONCE")
+echo "  signature: ${SIG:0:48}..."
+
+echo
+echo "[5/5] verifier checks credential + presenter signature..."
+"$ATTEST" verify \
+  --credential "$ARTIFACTS/credential.bin" \
   --context    "$CTX" \
-  --threshold  100000
+  --threshold  100000 \
+  --nonce      "$NONCE" \
+  --signature  "$SIG"
 
 echo
 echo "=== Demo complete. Artifacts in $ARTIFACTS ==="

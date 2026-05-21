@@ -8,6 +8,8 @@
 | [limitations.md](./limitations.md) | Known limits and workarounds |
 | [integration-guide.md](./integration-guide.md) | Step-by-step for adding LP-0005 to your app |
 | [faq.md](./faq.md) | Common questions |
+| [glossary.md](./glossary.md) | LEZ / SPEL / Risc0 / LP-0005 terminology |
+| [whats-left.md](./whats-left.md) | Open scope before submission |
 | [sequencer-client-plan.md](./sequencer-client-plan.md) | Plan for the sequencer-client crate |
 | [writeup.md](./writeup.md) | Draft submission write-up |
 | [benchmarks/baseline.md](./benchmarks/baseline.md) | Proving / verification numbers |

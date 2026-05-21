@@ -1,0 +1,13 @@
+[package]
+name = "attestation-sequencer-client"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Stub client for LEZ sequencer JSON-RPC (getProofForCommitment). To be fleshed out alongside the verifier-program SPEL wrapper."
+
+[dependencies]
+attestation-core = { path = "../attestation-core", default-features = false, features = ["std"] }
+serde = { workspace = true, features = ["std"] }
+serde_json = "1"
+thiserror = "1"

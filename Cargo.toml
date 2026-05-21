@@ -9,6 +9,7 @@ members = [
     "crates/cli",
     "crates/verifier-program",
     "crates/delivery-transport",
+    "crates/sequencer-client",
     "integrations/governance-gate",
     "integrations/chat-gate",
     "integrations/premium-features",

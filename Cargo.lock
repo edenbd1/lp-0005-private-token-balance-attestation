@@ -414,6 +414,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "attestation-sequencer-client"
+version = "0.1.0"
+dependencies = [
+ "attestation-core",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "attestation-verifier-offchain"
 version = "0.1.0"
 dependencies = [

@@ -2,7 +2,7 @@
 
 use attestation_core::PublicJournal;
 use attestation_verifier_program::signature::presenter_challenge_digest;
-use k256::ecdsa::{signature::Signer, Signature, SigningKey};
+use k256::ecdsa::SigningKey;
 use k256::elliptic_curve::sec1::ToEncodedPoint;
 use premium_features::Tier;
 

@@ -1766,6 +1766,7 @@ dependencies = [
  "attestation-core",
  "attestation-sdk",
  "attestation-verifier-offchain",
+ "attestation-verifier-program",
  "k256",
  "rand 0.8.6",
  "risc0-zkvm",

@@ -30,6 +30,11 @@ enum Cmd {
         #[arg(long)]
         out: PathBuf,
     },
+    /// Decode and pretty-print the journal embedded in a credential.
+    Journal {
+        #[arg(long)]
+        credential: PathBuf,
+    },
     /// Generate an attestation credential.
     /// Uses synthesized account state — for demos. Real flow consumes a sequencer
     /// `get_proof_for_commitment` response and a wallet-held private account.
@@ -119,6 +124,19 @@ fn main() -> Result<()> {
             std::fs::write(&out, &bytes)?;
             println!("wrote credential ({} bytes) to {}", bytes.len(), out.display());
             println!("nullifier: 0x{}", hex::encode(proof.journal.nullifier));
+        }
+        Cmd::Journal { credential } => {
+            let bytes = std::fs::read(&credential)?;
+            let (receipt, _): (Receipt, _) =
+                bincode::serde::decode_from_slice(&bytes, bincode::config::standard())?;
+            let journal = attestation_verifier_offchain::verify_receipt(&receipt)?;
+            println!("{}", serde_json::to_string_pretty(&serde_json::json!({
+                "merkle_root":      hex::encode(journal.merkle_root),
+                "threshold":        journal.threshold,
+                "context_id":       hex::encode(journal.context_id),
+                "presenter_pubkey": hex::encode(journal.presenter_pubkey),
+                "nullifier":        hex::encode(journal.nullifier),
+            }))?);
         }
         Cmd::Verify {
             credential,

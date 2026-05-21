@@ -1,0 +1,6 @@
+# Pinned for host crates. The Risc0 guest uses its own toolchain installed via rzup
+# (cargo-risczero 3.0.5 / r0vm 3.0.5 / rust 1.88.0). The host can build on any
+# recent stable Rust; pinning here just keeps CI reproducible.
+[toolchain]
+channel = "stable"
+components = ["clippy", "rustfmt"]

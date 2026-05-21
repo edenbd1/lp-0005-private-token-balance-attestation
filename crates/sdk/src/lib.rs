@@ -154,3 +154,48 @@ pub fn synthetic_merkle_path(leaf_hash: &[u8; 32], leaf_index: u64, depth: usize
 
 /// Identifier exported so CLI/integrations can reference the same program by name.
 pub const ATTESTATION_PROGRAM_ID_WORDS: [u32; 8] = ATTESTATION_ID;
+
+/// Helper for integrations that don't yet have a sequencer-backed Merkle proof:
+/// builds a complete `ProveRequest` against a synthesized account + path of the given depth.
+pub struct DemoFixture {
+    pub npk: [u8; 32],
+    pub identifier: u128,
+    pub program_owner: [u32; 8],
+    pub balance: u128,
+    pub nonce: u128,
+    pub data_seed: &'static [u8],
+    pub leaf_index: u64,
+    pub tree_depth: usize,
+    pub threshold: u128,
+    pub context_id: [u8; 32],
+    pub presenter_pubkey: [u8; 33],
+}
+
+impl DemoFixture {
+    pub fn into_request(self) -> ProveRequest {
+        use sha2::{Digest, Sha256};
+        let mut h = Sha256::new();
+        h.update(self.data_seed);
+        let data_hash: [u8; 32] = h.finalize().into();
+
+        let mut req = ProveRequest {
+            npk: self.npk,
+            identifier: self.identifier,
+            program_owner: self.program_owner,
+            balance: self.balance,
+            nonce: self.nonce,
+            data_hash,
+            merkle_path: vec![],
+            leaf_index: self.leaf_index,
+            merkle_root: [0u8; 32],
+            threshold: self.threshold,
+            context_id: self.context_id,
+            presenter_pubkey: self.presenter_pubkey,
+        };
+        let (_commit, leaf_hash) = precompute_leaf(&req);
+        let (path, root) = synthetic_merkle_path(&leaf_hash, req.leaf_index, self.tree_depth);
+        req.merkle_path = path;
+        req.merkle_root = root;
+        req
+    }
+}

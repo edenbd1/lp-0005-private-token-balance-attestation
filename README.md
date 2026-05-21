@@ -8,7 +8,38 @@ Prove that a shielded token account holds at least `N` tokens — without reveal
 
 ## Status
 
-Work in progress.
+Work in progress. Current artifacts:
+
+- Risc0 attestation guest circuit (`crates/attestation-circuit/`) — proves `balance >= N` over the LEZ private-account commitment, with Merkle membership, context binding, and nullifier emission.
+- Off-chain verifier (`crates/verifier-offchain/`) and on-chain gate kernel (`crates/verifier-program/`).
+- Client SDK (`crates/sdk/`) and CLI (`crates/cli/`).
+- Three reference integrations under `integrations/`.
+
+## Quickstart
+
+```bash
+# Install the Risc0 toolchain (one-time).
+curl -L https://risczero.com/install | bash
+rzup install cargo-risczero 3.0.5
+rzup install r0vm           3.0.5
+
+# Build and run an end-to-end demo (real STARK proving by default).
+cargo build --release -p attestation-cli --bin attest
+./scripts/demo.sh
+```
+
+The demo generates a presenter key, proves `balance(1_000_000) >= 100_000`, and verifies the resulting credential locally.
+
+## Performance (Apple Silicon, CPU only)
+
+| Operation | Time | Size |
+|---|---|---|
+| STARK prove (guest v1) | ≈ 7.1 s | — |
+| Risc0 receipt          | — | ≈ 300 KB |
+| Risc0 verify           | ≈ 10 ms | — |
+| ECDSA presenter check  | ≈ 1 ms | — |
+
+Full numbers in [`docs/benchmarks/baseline.md`](./docs/benchmarks/baseline.md).
 
 ## Architecture
 
@@ -85,6 +116,19 @@ A proof commits publicly to a `presenter_pubkey`. The presenter must sign a veri
 | CLI | `crates/cli/` | `prove`, `submit`, `send`, `verify` |
 | Basecamp app | `app/` | GUI for end users |
 | Integrations | `integrations/` | Reference integrations (governance gate, chat gate, third use case) |
+
+## Documentation
+
+| Doc | What's in it |
+|---|---|
+| [`docs/architecture.md`](./docs/architecture.md) | End-to-end diagram, crate map |
+| [`docs/design.md`](./docs/design.md) | Cryptographic design, threat model, public/private split |
+| [`docs/security.md`](./docs/security.md) | Privacy guarantees, threat table, trust assumptions |
+| [`docs/limitations.md`](./docs/limitations.md) | Known limits and workarounds |
+| [`docs/integration-guide.md`](./docs/integration-guide.md) | Step-by-step for adding LP-0005 to your app |
+| [`docs/benchmarks/baseline.md`](./docs/benchmarks/baseline.md) | Proving / verification numbers |
+| [`docs/recon.md`](./docs/recon.md) | Verified facts about LEZ, SPEL, Logos Messaging |
+| [`docs/decisions/`](./docs/decisions/) | Architecture decision records |
 
 ## License
 

@@ -1,0 +1,25 @@
+# Skeleton — NOT part of the default workspace.
+# To build, drop this crate into a Logos workspace checkout (e.g.
+# `_external/lez/programs/attestation-verifier/`) and unpin the path deps below.
+
+[package]
+name = "attestation-verifier-program-spel"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+attestation-core = { path = "../attestation-core" }
+attestation-verifier-program = { path = "../verifier-program" }
+serde = { version = "1", default-features = false, features = ["derive", "alloc"] }
+
+# Resolved by the host Logos workspace:
+# nssa_core = { workspace = true }
+# spel_framework = { workspace = true }
+# risc0-zkvm = { workspace = true, default-features = false }
+
+[workspace]
+# Stand alone — do NOT join the lp-0005 workspace.

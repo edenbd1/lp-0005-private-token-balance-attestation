@@ -1,0 +1,10 @@
+# Default owner for all paths
+*       @edenbd1
+
+# Cryptographic touchpoints — require careful review
+/crates/attestation-core/                 @edenbd1
+/crates/attestation-circuit/methods/      @edenbd1
+/crates/verifier-program/                 @edenbd1
+/crates/verifier-offchain/                @edenbd1
+/docs/security.md                          @edenbd1
+/docs/design.md                            @edenbd1

@@ -41,6 +41,24 @@ Step-by-step for adding LP-0005 attestations to your application.
 - Nullifier construction — emitted automatically.
 - Receipt verification details — the verifier crates wrap `Receipt::verify` for you.
 
+## CLI subcommands at a glance
+
+| Subcommand | Side | What it does |
+|---|---|---|
+| `attest keygen --out FILE` | prover | Generate a fresh secp256k1 presenter key. |
+| `attest prove ...` | prover | Generate a credential against a synthesized account (demo). |
+| `attest journal --credential FILE` | either | Decode and print the journal embedded in a credential. |
+| `attest challenge` | verifier | Print a fresh 32-byte challenge nonce in hex. |
+| `attest verify ...` | verifier | Run the full off-chain verify (receipt + signature). |
+
+A typical challenge-response flow:
+
+```
+$ attest challenge > nonce.hex
+# verifier hands nonce.hex to the prover
+$ attest verify --credential cred.bin --presenter alice.json --context "gov-v1" --threshold 100000
+```
+
 ## Testing tips
 
 - Use `RISC0_DEV_MODE=1` for fast iteration. Switch to `=0` before benchmarks or recording the demo.

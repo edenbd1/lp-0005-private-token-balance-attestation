@@ -37,6 +37,17 @@ enum Cmd {
     },
     /// Verifier-side: generate a fresh challenge nonce (32 bytes hex).
     Challenge,
+    /// Prover-side: sign a verifier-supplied challenge with the presenter key.
+    /// Outputs the DER-encoded signature as hex on stdout.
+    SignChallenge {
+        #[arg(long)]
+        credential: PathBuf,
+        #[arg(long)]
+        presenter: PathBuf,
+        /// Hex-encoded 32-byte nonce produced by the verifier.
+        #[arg(long)]
+        nonce: String,
+    },
     /// Generate an attestation credential.
     /// Uses synthesized account state — for demos. Real flow consumes a sequencer
     /// `get_proof_for_commitment` response and a wallet-held private account.
@@ -53,15 +64,28 @@ enum Cmd {
         out: PathBuf,
     },
     /// Verify a credential locally (Risc0 + presenter signature).
+    ///
+    /// In a real challenge-response, `--nonce` and `--signature` come from the
+    /// presenter after the verifier publishes its challenge. For self-contained
+    /// demos (and CI), omit them and the CLI loads the presenter key locally to
+    /// simulate the round-trip.
     Verify {
         #[arg(long)]
         credential: PathBuf,
         #[arg(long)]
-        presenter: PathBuf,
-        #[arg(long)]
         context: String,
         #[arg(long)]
         threshold: u128,
+        /// Optional verifier-drawn nonce (hex). If omitted, a fresh one is drawn.
+        #[arg(long)]
+        nonce: Option<String>,
+        /// Hex DER signature returned by the presenter for `--nonce`.
+        #[arg(long)]
+        signature: Option<String>,
+        /// Self-contained mode: load the presenter key and sign in-process.
+        /// Ignored if both `--nonce` and `--signature` are supplied.
+        #[arg(long)]
+        presenter: Option<PathBuf>,
     },
 }
 
@@ -145,26 +169,63 @@ fn main() -> Result<()> {
                 "nullifier":        hex::encode(journal.nullifier),
             }))?);
         }
-        Cmd::Verify {
+        Cmd::SignChallenge {
             credential,
             presenter,
-            context,
-            threshold,
+            nonce,
         } => {
             let pk = load_presenter(&presenter)?;
             let bytes = std::fs::read(&credential)?;
             let (receipt, _): (Receipt, _) =
                 bincode::serde::decode_from_slice(&bytes, bincode::config::standard())?;
+            // Prover decodes their own journal without re-verifying the receipt:
+            // re-verifying in this process would refuse DEV_MODE receipts that the prover
+            // just generated, and would duplicate work that the verifier will do anyway.
+            let journal: attestation_core::PublicJournal = receipt
+                .journal
+                .decode()
+                .context("could not decode journal from credential")?;
+            let nonce_bytes = parse_nonce(&nonce)?;
+            let signature = pk.sign(&nonce_bytes, &journal);
+            println!("{}", hex::encode(signature));
+        }
+        Cmd::Verify {
+            credential,
+            context,
+            threshold,
+            nonce,
+            signature,
+            presenter,
+        } => {
+            let bytes = std::fs::read(&credential)?;
+            let (receipt, _): (Receipt, _) =
+                bincode::serde::decode_from_slice(&bytes, bincode::config::standard())?;
 
-            // Simulate the verifier challenge: a fresh nonce per session.
-            let mut nonce = [0u8; 32];
-            rand::Rng::fill(&mut rand::thread_rng(), &mut nonce);
-
-            let journal = attestation_verifier_offchain::verify_receipt(&receipt)?;
-            let signature = pk.sign(&nonce, &journal);
+            // Resolve (nonce, signature):
+            //   external mode: --nonce + --signature passed in by the caller
+            //   self-contained mode: load --presenter, draw a fresh nonce, sign locally
+            let (nonce_bytes, sig_bytes) = match (nonce, signature, presenter) {
+                (Some(n_hex), Some(s_hex), _) => {
+                    let n = parse_nonce(&n_hex)?;
+                    let s = hex::decode(s_hex.trim()).context("--signature is not valid hex")?;
+                    (n, s)
+                }
+                (None, None, Some(presenter_path)) => {
+                    let pk = load_presenter(&presenter_path)?;
+                    let mut n = [0u8; 32];
+                    rand::Rng::fill(&mut rand::thread_rng(), &mut n);
+                    let journal = attestation_verifier_offchain::verify_receipt(&receipt)?;
+                    let s = pk.sign(&n, &journal);
+                    (n, s)
+                }
+                _ => anyhow::bail!(
+                    "supply either (--nonce + --signature) for external challenge-response, \
+                     or --presenter for the self-contained demo mode"
+                ),
+            };
 
             let expected_context = context_id_from(&context);
-            let journal = verify_credential(&receipt, &nonce, &signature, &expected_context, threshold)?;
+            let journal = verify_credential(&receipt, &nonce_bytes, &sig_bytes, &expected_context, threshold)?;
             println!("verified.");
             println!("threshold attested: {}", journal.threshold);
             println!("context_id:         0x{}", hex::encode(journal.context_id));
@@ -194,4 +255,12 @@ fn sha256(b: &[u8]) -> [u8; 32] {
     let mut h = Sha256::new();
     h.update(b);
     h.finalize().into()
+}
+
+fn parse_nonce(hex_in: &str) -> Result<[u8; 32]> {
+    let bytes = hex::decode(hex_in.trim()).context("nonce is not valid hex")?;
+    bytes
+        .as_slice()
+        .try_into()
+        .map_err(|_| anyhow::anyhow!("nonce must be exactly 32 bytes"))
 }

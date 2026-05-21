@@ -8,6 +8,7 @@ members = [
     "crates/sdk",
     "crates/cli",
     "crates/verifier-program",
+    "crates/delivery-transport",
     "integrations/governance-gate",
     "integrations/chat-gate",
     "integrations/premium-features",

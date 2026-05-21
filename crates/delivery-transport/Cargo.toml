@@ -1,0 +1,16 @@
+[package]
+name = "attestation-delivery-transport"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Logos Delivery (a.k.a. Logos Messaging) transport abstraction for LP-0005 credentials."
+
+[dependencies]
+attestation-core = { path = "../attestation-core", default-features = false, features = ["std"] }
+risc0-zkvm = { workspace = true, features = ["std", "client"] }
+serde = { workspace = true, features = ["std"] }
+sha2 = { workspace = true, features = ["std"] }
+thiserror = "1"
+async-trait = "0.1"
+bincode = { version = "2", features = ["serde"] }

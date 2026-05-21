@@ -14,6 +14,10 @@ All notable changes to this project. Format follows [Keep a Changelog](https://k
 - End-to-end demo script (`scripts/demo.sh`).
 - Documentation: design, architecture, security, limitations, integration guide, FAQ, write-up draft, ADRs.
 
+### Skeletons (not in default workspace)
+- `crates/verifier-program-spel/` — `#[lez_program]` wrapper around `check_gate`. To be dropped into a LEZ workspace checkout.
+- `app/` — Basecamp app skeleton (Qt manifest, QML surface, C++ bridge). Bridge shells out to `attest` until a Qt build lands.
+
 ### Pinned
 - Risc0 to 3.0.5 (matches LEZ).
 

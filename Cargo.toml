@@ -19,6 +19,8 @@ members = [
 # `_external/` holds cloned reference repos, never build them as our members.
 exclude = [
     "crates/attestation-circuit/methods/guest",
+    # SPEL wrapper skeleton — see crates/verifier-program-spel/README.md.
+    "crates/verifier-program-spel",
     "_external",
 ]
 

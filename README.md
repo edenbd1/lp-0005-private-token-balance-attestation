@@ -4,7 +4,7 @@ A reusable private balance attestation primitive for the Logos Execution Zone (L
 
 Prove that a shielded token account holds at least `N` tokens — without revealing the account's `npk`, exact balance, or identity — and verify the proof either on-chain (LEZ verifier program) or off-chain (via Logos Messaging).
 
-> Submission for [LP-0005 on ns.com](https://ns.com/earn/lp-0005-private-token-balance-attestation).
+> Submission for [LP-0005 on ns.com](https://ns.com/earn/lp-0005-private-token-balance-attestation). For an evaluator's checklist, see [`docs/criteria-checklist.md`](./docs/criteria-checklist.md).
 
 ## Status
 

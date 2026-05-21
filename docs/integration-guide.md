@@ -49,14 +49,28 @@ Step-by-step for adding LP-0005 attestations to your application.
 | `attest prove ...` | prover | Generate a credential against a synthesized account (demo). |
 | `attest journal --credential FILE` | either | Decode and print the journal embedded in a credential. |
 | `attest challenge` | verifier | Print a fresh 32-byte challenge nonce in hex. |
-| `attest verify ...` | verifier | Run the full off-chain verify (receipt + signature). |
+| `attest sign-challenge --credential C --presenter K --nonce N` | prover | Sign the verifier's challenge under the presenter's key; outputs DER hex. |
+| `attest verify --credential C --context X --threshold N [--nonce N --signature S \| --presenter K]` | verifier | Off-chain verify. Pass an external (nonce, signature) for the real flow; pass `--presenter` for the self-contained demo. |
 
-A typical challenge-response flow:
+The real challenge-response flow:
 
+```bash
+# verifier draws a nonce
+NONCE=$(attest challenge)
+
+# verifier hands NONCE to the prover; prover signs
+SIG=$(attest sign-challenge --credential cred.bin --presenter alice.json --nonce $NONCE)
+
+# prover hands (cred.bin, NONCE, SIG) to the verifier; verifier checks
+attest verify --credential cred.bin --context "gov-v1" --threshold 100000 \
+              --nonce $NONCE --signature $SIG
 ```
-$ attest challenge > nonce.hex
-# verifier hands nonce.hex to the prover
-$ attest verify --credential cred.bin --presenter alice.json --context "gov-v1" --threshold 100000
+
+For a self-contained demo (prover and verifier in one process):
+
+```bash
+attest verify --credential cred.bin --context "gov-v1" --threshold 100000 \
+              --presenter alice.json
 ```
 
 ## Testing tips

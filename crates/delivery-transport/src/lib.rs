@@ -70,3 +70,6 @@ pub trait Transport: Send + Sync {
 }
 
 pub mod inmem;
+
+#[cfg(feature = "qt-bridge")]
+pub mod qt_bridge;

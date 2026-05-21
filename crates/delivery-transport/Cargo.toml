@@ -14,3 +14,9 @@ sha2 = { workspace = true, features = ["std"] }
 thiserror = "1"
 async-trait = "0.1"
 bincode = { version = "2", features = ["serde"] }
+
+[features]
+default = []
+# Enables the Qt-helper-backed Logos Delivery transport (see src/qt_bridge.rs).
+# Requires a separately installed logos-delivery-helper binary.
+qt-bridge = []

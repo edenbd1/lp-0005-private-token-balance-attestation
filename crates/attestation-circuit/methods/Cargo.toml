@@ -1,0 +1,13 @@
+[package]
+name = "attestation-methods"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Build wrapper that compiles the LP-0005 attestation guest and re-exports its image id."
+
+[build-dependencies]
+risc0-build = { workspace = true }
+
+[package.metadata.risc0]
+methods = ["guest"]

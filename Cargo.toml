@@ -1,0 +1,38 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/attestation-core",
+    "crates/attestation-circuit",
+    "crates/attestation-circuit/methods",
+]
+# The guest crate uses the riscv32im-risc0-zkvm-elf toolchain; excluding it
+# from the workspace keeps the host crates on stable host targets.
+# `_external/` holds cloned reference repos, never build them as our members.
+exclude = [
+    "crates/attestation-circuit/methods/guest",
+    "_external",
+]
+
+[workspace.dependencies]
+risc0-zkvm = { version = "3.0.5", default-features = false }
+risc0-build = { version = "3.0.5" }
+risc0-zkp = { version = "3.0.5", default-features = false }
+sha2 = { version = "0.10", default-features = false }
+serde = { version = "1", default-features = false, features = ["derive", "alloc"] }
+serde-big-array = { version = "0.5", default-features = false }
+bytemuck = { version = "1", features = ["derive"] }
+hex = { version = "0.4", default-features = false, features = ["alloc"] }
+anyhow = "1"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/edenbd1/lp-0005-private-token-balance-attestation"
+
+[profile.release]
+debug = 1
+lto = true
+
+[profile.release.build-override]
+opt-level = 3

@@ -14,3 +14,6 @@ k256 = { version = "0.13", features = ["ecdsa"] }
 # Logos integration deps (SPEL framework, nssa core) are pulled in only when this
 # crate is compiled inside a Logos workspace. Local builds skip them.
 # See docs/decisions/002-verifier-program-shape.md for the planned wiring.
+
+[dev-dependencies]
+rand = "0.8"

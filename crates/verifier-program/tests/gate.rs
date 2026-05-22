@@ -2,7 +2,9 @@
 //! gate semantics that on-chain and off-chain paths share.
 
 use attestation_core::PublicJournal;
-use attestation_verifier_program::{check_gate, signature::presenter_challenge_digest, GateError, GateInputs};
+use attestation_verifier_program::{
+    check_gate, signature::presenter_challenge_digest, GateError, GateInputs,
+};
 use k256::ecdsa::{signature::Signer, Signature, SigningKey};
 
 fn make_pubkey(sk: &SigningKey) -> [u8; 33] {
@@ -10,7 +12,11 @@ fn make_pubkey(sk: &SigningKey) -> [u8; 33] {
     pt.as_bytes().try_into().expect("33-byte compressed sec1")
 }
 
-fn sample_journal(presenter_pubkey: [u8; 33], context_id: [u8; 32], threshold: u128) -> PublicJournal {
+fn sample_journal(
+    presenter_pubkey: [u8; 33],
+    context_id: [u8; 32],
+    threshold: u128,
+) -> PublicJournal {
     PublicJournal {
         merkle_root: [0x11; 32],
         threshold,

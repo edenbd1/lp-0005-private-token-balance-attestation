@@ -8,8 +8,8 @@
 
 use anyhow::Result;
 use attestation_circuit::{
-    compute_commitment, compute_nullifier, derive_account_id, fold_merkle_path,
-    PrivateInputs, PublicJournal,
+    compute_commitment, compute_nullifier, derive_account_id, fold_merkle_path, PrivateInputs,
+    PublicJournal,
 };
 use attestation_methods::{ATTESTATION_ELF, ATTESTATION_ID};
 use risc0_zkvm::{default_prover, ExecutorEnv, ProverOpts};

@@ -28,9 +28,10 @@ pub fn verify_presenter(
 ) -> Result<(), GateError> {
     use k256::ecdsa::{signature::Verifier, Signature, VerifyingKey};
 
-    let vk =
-        VerifyingKey::from_sec1_bytes(&journal.presenter_pubkey).map_err(|_| GateError::InvalidPubkey)?;
+    let vk = VerifyingKey::from_sec1_bytes(&journal.presenter_pubkey)
+        .map_err(|_| GateError::InvalidPubkey)?;
     let sig = Signature::from_der(signature_der).map_err(|_| GateError::InvalidSignature)?;
     let digest = presenter_challenge_digest(nonce, journal);
-    vk.verify(&digest, &sig).map_err(|_| GateError::SignatureRejected)
+    vk.verify(&digest, &sig)
+        .map_err(|_| GateError::SignatureRejected)
 }

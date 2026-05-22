@@ -6,7 +6,7 @@
 //!   attest verify --credential credential.bin --presenter presenter.key --context "gov-v1" --threshold 100000
 
 use anyhow::{Context, Result};
-use attestation_sdk::{prove, precompute_leaf, synthetic_merkle_path, PresenterKey, ProveRequest};
+use attestation_sdk::{precompute_leaf, prove, synthetic_merkle_path, PresenterKey, ProveRequest};
 use attestation_verifier_offchain::verify_credential;
 use clap::{Parser, Subcommand};
 use risc0_zkvm::Receipt;
@@ -153,7 +153,11 @@ fn main() -> Result<()> {
 
             let bytes = bincode::serde::encode_to_vec(&proof.receipt, bincode::config::standard())?;
             std::fs::write(&out, &bytes)?;
-            println!("wrote credential ({} bytes) to {}", bytes.len(), out.display());
+            println!(
+                "wrote credential ({} bytes) to {}",
+                bytes.len(),
+                out.display()
+            );
             println!("nullifier: 0x{}", hex::encode(proof.journal.nullifier));
         }
         Cmd::Journal { credential } => {
@@ -161,13 +165,16 @@ fn main() -> Result<()> {
             let (receipt, _): (Receipt, _) =
                 bincode::serde::decode_from_slice(&bytes, bincode::config::standard())?;
             let journal = attestation_verifier_offchain::verify_receipt(&receipt)?;
-            println!("{}", serde_json::to_string_pretty(&serde_json::json!({
-                "merkle_root":      hex::encode(journal.merkle_root),
-                "threshold":        journal.threshold,
-                "context_id":       hex::encode(journal.context_id),
-                "presenter_pubkey": hex::encode(journal.presenter_pubkey),
-                "nullifier":        hex::encode(journal.nullifier),
-            }))?);
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&serde_json::json!({
+                    "merkle_root":      hex::encode(journal.merkle_root),
+                    "threshold":        journal.threshold,
+                    "context_id":       hex::encode(journal.context_id),
+                    "presenter_pubkey": hex::encode(journal.presenter_pubkey),
+                    "nullifier":        hex::encode(journal.nullifier),
+                }))?
+            );
         }
         Cmd::SignChallenge {
             credential,
@@ -225,7 +232,13 @@ fn main() -> Result<()> {
             };
 
             let expected_context = context_id_from(&context);
-            let journal = verify_credential(&receipt, &nonce_bytes, &sig_bytes, &expected_context, threshold)?;
+            let journal = verify_credential(
+                &receipt,
+                &nonce_bytes,
+                &sig_bytes,
+                &expected_context,
+                threshold,
+            )?;
             println!("verified.");
             println!("threshold attested: {}", journal.threshold);
             println!("context_id:         0x{}", hex::encode(journal.context_id));
@@ -236,11 +249,15 @@ fn main() -> Result<()> {
 }
 
 fn load_presenter(path: &PathBuf) -> Result<PresenterKey> {
-    let raw = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+    let raw =
+        std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
     let v: serde_json::Value = serde_json::from_str(&raw)?;
     let hex_sk = v["secret_hex"].as_str().context("missing secret_hex")?;
     let bytes = hex::decode(hex_sk)?;
-    let bytes: [u8; 32] = bytes.as_slice().try_into().map_err(|_| anyhow::anyhow!("bad sk length"))?;
+    let bytes: [u8; 32] = bytes
+        .as_slice()
+        .try_into()
+        .map_err(|_| anyhow::anyhow!("bad sk length"))?;
     PresenterKey::from_bytes(&bytes)
 }
 

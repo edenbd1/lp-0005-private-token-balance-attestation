@@ -119,11 +119,7 @@ pub fn compute_commitment(
 
 /// Walk a Merkle path from a leaf to the root.
 /// Uses `hash_two(L, R) = SHA256(L || R)` per `_external/lez/nssa/src/merkle_tree/mod.rs:146-157`.
-pub fn fold_merkle_path(
-    leaf_hash: &[u8; 32],
-    leaf_index: u64,
-    siblings: &[[u8; 32]],
-) -> [u8; 32] {
+pub fn fold_merkle_path(leaf_hash: &[u8; 32], leaf_index: u64, siblings: &[[u8; 32]]) -> [u8; 32] {
     use sha2::{Digest, Sha256};
     let mut node = *leaf_hash;
     let mut idx = leaf_index;

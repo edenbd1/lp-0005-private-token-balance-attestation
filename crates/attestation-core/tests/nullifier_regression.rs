@@ -32,7 +32,10 @@ fn nullifier_distinguishes_context() {
     let aid = [0xCC; 32];
     let n1 = compute_nullifier(&pk, &[0x01; 32], &aid);
     let n2 = compute_nullifier(&pk, &[0x02; 32], &aid);
-    assert_ne!(n1, n2, "different context_ids must yield different nullifiers");
+    assert_ne!(
+        n1, n2,
+        "different context_ids must yield different nullifiers"
+    );
 }
 
 #[test]
@@ -41,5 +44,8 @@ fn nullifier_distinguishes_presenter() {
     let aid = [0xCC; 32];
     let n1 = compute_nullifier(&[0xAA; 33], &ctx, &aid);
     let n2 = compute_nullifier(&[0xBB; 33], &ctx, &aid);
-    assert_ne!(n1, n2, "different presenter pubkeys must yield different nullifiers");
+    assert_ne!(
+        n1, n2,
+        "different presenter pubkeys must yield different nullifiers"
+    );
 }

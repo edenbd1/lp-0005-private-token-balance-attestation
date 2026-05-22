@@ -36,19 +36,29 @@ impl QtBridgeTransport {
             .stderr(Stdio::inherit())
             .spawn()
             .map_err(|e| TransportError::Upstream(format!("spawn helper: {e}")))?;
-        Ok(Self { child: Mutex::new(child) })
+        Ok(Self {
+            child: Mutex::new(child),
+        })
     }
 }
 
 #[async_trait::async_trait]
 impl Transport for QtBridgeTransport {
-    async fn send(&self, _topic: &str, _envelope: CredentialEnvelope) -> Result<(), TransportError> {
+    async fn send(
+        &self,
+        _topic: &str,
+        _envelope: CredentialEnvelope,
+    ) -> Result<(), TransportError> {
         // Writes `{"op": "send", "topic": ..., "envelope": <base64>}\n` to stdin.
-        Err(TransportError::Upstream("qt-bridge not wired up yet (task #16)".to_owned()))
+        Err(TransportError::Upstream(
+            "qt-bridge not wired up yet (task #16)".to_owned(),
+        ))
     }
 
     async fn recv(&self, _topic: &str) -> Result<Option<CredentialEnvelope>, TransportError> {
         // Reads `{"op": "recv", "topic": ..., "envelope": <base64>}\n` from stdout.
-        Err(TransportError::Upstream("qt-bridge not wired up yet (task #16)".to_owned()))
+        Err(TransportError::Upstream(
+            "qt-bridge not wired up yet (task #16)".to_owned(),
+        ))
     }
 }

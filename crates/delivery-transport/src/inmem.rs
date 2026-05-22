@@ -34,7 +34,8 @@ impl InMemoryTransport {
 impl Transport for InMemoryTransport {
     async fn send(&self, topic: &str, envelope: CredentialEnvelope) -> Result<(), TransportError> {
         let (tx, _) = self.channel_for(topic);
-        tx.send(envelope).map_err(|e| TransportError::Upstream(e.to_string()))?;
+        tx.send(envelope)
+            .map_err(|e| TransportError::Upstream(e.to_string()))?;
         Ok(())
     }
 

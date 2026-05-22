@@ -13,7 +13,12 @@ fn sha(b: &[u8]) -> [u8; 32] {
     h.finalize().into()
 }
 
-fn make_request(presenter_pubkey: [u8; 33], group_id: &str, balance: u128, threshold: u128) -> ProveRequest {
+fn make_request(
+    presenter_pubkey: [u8; 33],
+    group_id: &str,
+    balance: u128,
+    threshold: u128,
+) -> ProveRequest {
     let npk = [0x33_u8; 32];
     let identifier: u128 = 1;
     let program_owner = [0x11_22_33_44_u32; 8];

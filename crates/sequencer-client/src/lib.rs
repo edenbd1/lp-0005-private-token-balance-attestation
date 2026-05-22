@@ -28,7 +28,12 @@ pub struct Request<P> {
 
 impl<P> Request<P> {
     pub const fn new(id: u64, method: &'static str, params: P) -> Self {
-        Self { jsonrpc: "2.0", id, method, params }
+        Self {
+            jsonrpc: "2.0",
+            id,
+            method,
+            params,
+        }
     }
 }
 
@@ -46,10 +51,15 @@ pub struct SequencerClient {
 
 impl SequencerClient {
     pub fn new(endpoint: impl Into<String>) -> Self {
-        Self { endpoint: endpoint.into() }
+        Self {
+            endpoint: endpoint.into(),
+        }
     }
 
-    pub fn get_proof_for_commitment(&self, _commitment: &[u8; 32]) -> Result<Option<MembershipProof>, ClientError> {
+    pub fn get_proof_for_commitment(
+        &self,
+        _commitment: &[u8; 32],
+    ) -> Result<Option<MembershipProof>, ClientError> {
         Err(ClientError::NotImplemented)
     }
 }

@@ -19,8 +19,8 @@
 
 use anyhow::Result;
 use attestation_core::{
-    compute_commitment, compute_nullifier, derive_account_id, fold_merkle_path,
-    PrivateInputs, PublicJournal,
+    compute_commitment, compute_nullifier, derive_account_id, fold_merkle_path, PrivateInputs,
+    PublicJournal,
 };
 use attestation_methods::{ATTESTATION_ELF, ATTESTATION_ID};
 use attestation_verifier_offchain::presenter_challenge_digest;
@@ -119,7 +119,9 @@ pub fn prove(req: ProveRequest) -> Result<AttestationProof> {
 }
 
 /// Re-export so SDK users get a single dependency.
-pub use attestation_verifier_offchain::{verify_credential, VerifyError, ATTESTATION_ID as PROGRAM_ID};
+pub use attestation_verifier_offchain::{
+    verify_credential, VerifyError, ATTESTATION_ID as PROGRAM_ID,
+};
 
 /// Convenience helper: rebuild the host-side commitment + Merkle leaf hash from raw inputs.
 pub fn precompute_leaf(req: &ProveRequest) -> ([u8; 32], [u8; 32]) {
@@ -140,7 +142,11 @@ pub fn precompute_leaf(req: &ProveRequest) -> ([u8; 32], [u8; 32]) {
 
 /// Convenience helper: synthesize a Merkle path of the given depth from a leaf hash,
 /// suitable for tests/demos that do not have a sequencer-provided proof yet.
-pub fn synthetic_merkle_path(leaf_hash: &[u8; 32], leaf_index: u64, depth: usize) -> (Vec<[u8; 32]>, [u8; 32]) {
+pub fn synthetic_merkle_path(
+    leaf_hash: &[u8; 32],
+    leaf_index: u64,
+    depth: usize,
+) -> (Vec<[u8; 32]>, [u8; 32]) {
     use sha2::{Digest, Sha256};
     let mut path = Vec::with_capacity(depth);
     for i in 0..depth {

@@ -41,7 +41,10 @@ fn matches_lez_dummy_commitment() {
         h.finalize().into()
     };
     let got = compute_commitment(&account_id, &program_owner, balance, nonce, &data_hash);
-    assert_eq!(got, DUMMY_COMMITMENT, "compute_commitment diverges from LEZ DUMMY_COMMITMENT");
+    assert_eq!(
+        got, DUMMY_COMMITMENT,
+        "compute_commitment diverges from LEZ DUMMY_COMMITMENT"
+    );
 }
 
 #[test]

@@ -2,12 +2,16 @@
 
 use crate::{CredentialEnvelope, Transport, TransportError};
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
 use std::sync::mpsc;
+use std::sync::{Arc, Mutex};
+
+type Sender = mpsc::Sender<CredentialEnvelope>;
+type Receiver = Arc<Mutex<mpsc::Receiver<CredentialEnvelope>>>;
+type Channel = (Sender, Receiver);
 
 #[derive(Default, Clone)]
 pub struct InMemoryTransport {
-    inner: Arc<Mutex<HashMap<String, (mpsc::Sender<CredentialEnvelope>, Arc<Mutex<mpsc::Receiver<CredentialEnvelope>>>)>>>,
+    inner: Arc<Mutex<HashMap<String, Channel>>>,
 }
 
 impl InMemoryTransport {
@@ -15,7 +19,7 @@ impl InMemoryTransport {
         Self::default()
     }
 
-    fn channel_for(&self, topic: &str) -> (mpsc::Sender<CredentialEnvelope>, Arc<Mutex<mpsc::Receiver<CredentialEnvelope>>>) {
+    fn channel_for(&self, topic: &str) -> Channel {
         let mut map = self.inner.lock().unwrap();
         map.entry(topic.to_owned())
             .or_insert_with(|| {

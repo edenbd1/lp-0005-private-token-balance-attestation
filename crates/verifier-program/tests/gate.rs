@@ -4,7 +4,6 @@
 use attestation_core::PublicJournal;
 use attestation_verifier_program::{check_gate, signature::presenter_challenge_digest, GateError, GateInputs};
 use k256::ecdsa::{signature::Signer, Signature, SigningKey};
-use k256::elliptic_curve::sec1::ToEncodedPoint;
 
 fn make_pubkey(sk: &SigningKey) -> [u8; 33] {
     let pt = sk.verifying_key().to_encoded_point(true);

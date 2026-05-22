@@ -2,7 +2,6 @@ use attestation_core::PublicJournal;
 use attestation_verifier_program::signature::presenter_challenge_digest;
 use governance_gate::{cast_vote, ProposalState, VoteError, GOVERNANCE_CONTEXT_ID};
 use k256::ecdsa::{signature::Signer, Signature, SigningKey};
-use k256::elliptic_curve::sec1::ToEncodedPoint;
 
 fn make_journal(sk: &SigningKey, threshold: u128, nullifier_byte: u8) -> PublicJournal {
     let pk_pt = sk.verifying_key().to_encoded_point(true);

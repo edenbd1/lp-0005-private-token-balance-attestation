@@ -8,10 +8,26 @@ Prove that a shielded token account holds at least `N` tokens — without reveal
 
 ## Status
 
-Work in progress. Current artifacts:
+**✅ Deployed live on the public Logos Execution Zone testnet.**
 
-- Risc0 attestation guest circuit (`crates/attestation-circuit/`) — proves `balance >= N` over the LEZ private-account commitment, with Merkle membership, context binding, and nullifier emission.
-- Off-chain verifier (`crates/verifier-offchain/`) and on-chain gate kernel (`crates/verifier-program/`).
+- Sequencer: `https://testnet.lez.logos.co`
+- Block explorer: `https://explorer.testnet.lez.logos.co`
+- Signer (anchorer): [`CbgR6tj5kWx5oziiFptM7jMvrQeYY3Mzaao6ciuhSr2r`](https://explorer.testnet.lez.logos.co/account/CbgR6tj5kWx5oziiFptM7jMvrQeYY3Mzaao6ciuhSr2r)
+
+**Two on-chain programs — each independently verifiable via `getTransaction` JSON-RPC:**
+
+| Program | Deploy tx (click for explorer) | ImageID |
+|---|---|---|
+| **Attestation circuit** — Risc0 guest proving `balance ≥ N` | [`4593060b…3db989d`](https://explorer.testnet.lez.logos.co/transaction/4593060b507fef640b7f9c3d25b75432a83bc7097a439334436e532983db989d) | `dbc40b94…6a9d4d` |
+| **Verifier program** — SPEL `#[lez_program]` gating attestations | [`6369e70e…07c51b6d`](https://explorer.testnet.lez.logos.co/transaction/6369e70e9164edcef92dd7193cd4a5e88013e4cd0788e743ddacd7de07c51b6d) | `4d47780d…0ac9bb` |
+
+Full deployment record (with reproduction commands) in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+
+### Repository artifacts
+
+- Risc0 attestation guest circuit (`crates/attestation-circuit/`) — proves `balance ≥ N` over the LEZ private-account commitment, with Merkle membership, context binding, and nullifier emission.
+- On-chain verifier program (`crates/verifier-program-spel/`) — SPEL `#[lez_program]` that gates application actions on a valid attestation, composes the inner proof via chained-call.
+- Off-chain verifier (`crates/verifier-offchain/`) and the portable kernel (`crates/verifier-program/`).
 - Client SDK (`crates/sdk/`) and CLI (`crates/cli/`).
 - Three reference integrations under `integrations/`.
 

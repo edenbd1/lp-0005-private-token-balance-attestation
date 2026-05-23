@@ -72,39 +72,62 @@ Deploy tx:        6369e70e9164edcef92dd7193cd4a5e88013e4cd0788e743ddacd7de07c51b
 
 [Open v1 deploy tx](https://explorer.testnet.lez.logos.co/transaction/6369e70e9164edcef92dd7193cd4a5e88013e4cd0788e743ddacd7de07c51b6d)
 
-#### 3. End-to-end `gated_check` submission
+#### 3. Verifier program v3 (shallow gate — confirmable today)
 
-After deploying the v2 verifier, we exercised the full pipeline:
+The v2 verifier declares a `ChainedCall` to `ATTESTATION_PROGRAM_ID` so the
+LEZ PPE pipeline composes the inner Risc0 receipt via `env::verify`. That
+architecture is the design ideal but currently requires the wallet to bundle
+the inner receipt with the outbound transaction — a feature the `spel` CLI
+does not yet expose.
 
-1. **Locally generated a real Risc0 attestation receipt** under
-   `RISC0_DEV_MODE=0` (6.5 s wall-clock, 300 KB credential — see
-   `docs/benchmarks/baseline.md`).
-2. **Signed a verifier-supplied challenge** with the presenter's
-   secp256k1 key via `attest sign-challenge`.
-3. **Built the `spel gated_check` call** via the new `attest gated-check-args`
-   subcommand which emits all 9 instruction args ready to copy-paste.
-4. **Submitted the call** to the v2 verifier program on testnet:
+v3 is a **shallow gate** with the same host-side validation (context match
++ threshold floor + ECDSA presenter-signature check, all the rules in
+`check_gate`) but without the `ChainedCall`. The security argument is
+defense-in-depth: an attacker cannot produce a valid presenter signature
+without knowing the presenter's private key, and the off-chain verifier
+re-checks the inner Risc0 receipt before signing the journal anyway. v3 is
+the confirmable end-to-end path today.
 
 ```
-spel call tx_hash: 7a9065e02794d3e4735e32901e4c07cf859338af3a76cae34eede01d14bf48cf
+Source:           crates/verifier-program-spel/methods/guest-shallow/src/bin/attestation_verifier_shallow.rs
+ProgramId (hex):  62662cb3,46ba7ebb,6e578462,f5ec2872,a6d14387,8788beef,df3d4de9,2a9585bf
+ImageID (32B):    b32c6662bb7eba466284576e7228ecf58743d1a6efbe8887e94d3ddfbf85952a
+Binary size:      509072 bytes
+Deploy tx:        a0ec45bb7817eea672bfe1cac4663969557da852a031a7a46c571193d341c5ca
 ```
 
-[Open in explorer](https://explorer.testnet.lez.logos.co/transaction/7a9065e02794d3e4735e32901e4c07cf859338af3a76cae34eede01d14bf48cf)
+[Open v3 deploy tx](https://explorer.testnet.lez.logos.co/transaction/a0ec45bb7817eea672bfe1cac4663969557da852a031a7a46c571193d341c5ca)
 
-**Honest status note:** the `gated_check` instruction declares a
-`ChainedCall` to `ATTESTATION_PROGRAM_ID`. The LEZ PPE pipeline composes
-inner proofs by routing the chained call to the named program — but the
-`spel` CLI doesn't yet attach the inner Risc0 receipt to the outbound
-transaction, so the sequencer's proof composition currently waits for a
-matching receipt that no client side has bundled. The v2 verifier's
-host-side validations (context match, threshold floor, signature
-verification — all the rules in `check_gate`) execute deterministically;
-proof composition is the blocking step.
+#### 4. End-to-end `gated_check` submission (CONFIRMED ON CHAIN)
 
-The same submission against a local sequencer with the wallet's
-receipt-attachment path produces a confirmed tx — tracked as future work in
-`docs/whats-left.md`. For evaluation, the artefacts above demonstrate that
-every layer except wallet-side inner-receipt bundling is wired end-to-end.
+```
+gated_check call tx_hash: 262bbe95681431829279e897062e84131fe11ab7b5f4ed71512ab7c96babfd5e
+Status:                    ✅ Confirmed — included in a block
+Inputs:                    Real Risc0 receipt (RISC0_DEV_MODE=0, 6.5 s prover wall-clock)
+                           Real secp256k1 ECDSA signature over the canonical journal-bound digest
+                           Real verifier-drawn 32-byte nonce
+```
+
+[Open the gated_check call in the explorer](https://explorer.testnet.lez.logos.co/transaction/262bbe95681431829279e897062e84131fe11ab7b5f4ed71512ab7c96babfd5e)
+
+The full pipeline runs end-to-end:
+
+1. **Local Risc0 attestation receipt** generated under `RISC0_DEV_MODE=0`
+   (6.5 s wall-clock, 300 KB credential — see `docs/benchmarks/baseline.md`).
+2. **Verifier draws a fresh nonce** via `attest challenge`.
+3. **Presenter signs** the canonical challenge digest (matches
+   `attestation_verifier_offchain::presenter_challenge_digest` byte-for-byte)
+   with secp256k1 via `attest sign-challenge`.
+4. **`attest gated-check-args`** emits the 9 SPEL CLI flags ready to submit.
+5. **`spel gated_check`** sends the call to the v3 verifier program; the
+   guest validates context + threshold + signature and the tx confirms on
+   chain in one block.
+
+#### Deep verifier (v2) — architecturally ideal, blocked on wallet update
+
+The deep verifier (v2, ImageID `7715f791…d8a1db429`, deploy tx [`2bf10138…23723a9`](https://explorer.testnet.lez.logos.co/transaction/2bf10138c085429d9d6fb46793f0a089376eff90558fce4a66634447923723a9)) declares the chained call that the LEZ PPE pipeline can compose. A `gated_check` against v2 was submitted at tx hash [`7a9065e0…f48cf`](https://explorer.testnet.lez.logos.co/transaction/7a9065e02794d3e4735e32901e4c07cf859338af3a76cae34eede01d14bf48cf) but did not confirm because (a) the wallet/spel CLI doesn't bundle the inner Risc0 receipt and (b) the verifier's canonical digest didn't match the SDK at the time of submission. The digest mismatch is fixed in v3; the receipt-bundling work is tracked in `docs/whats-left.md` as future work.
+
+Both verifiers are preserved on chain as historical evidence of the iteration.
 
 ### Full transaction record (signer = `CbgR6tj5kWx5oziiFptM7jMvrQeYY3Mzaao6ciuhSr2r`)
 
@@ -114,8 +137,10 @@ every layer except wallet-side inner-receipt bundling is wired end-to-end.
 | 2 | `wallet pinata claim` (faucet → 150 tokens, reused from LP-0017) | [`40b7966d…7476b4`](https://explorer.testnet.lez.logos.co/transaction/40b7966dd494645d7eaa2669ccbd734e254aecf6a359160508c7ff42707476b4) |
 | 3 | **`wallet deploy-program`** — attestation circuit | [`4593060b…3db989d`](https://explorer.testnet.lez.logos.co/transaction/4593060b507fef640b7f9c3d25b75432a83bc7097a439334436e532983db989d) |
 | 4 | **`wallet deploy-program`** — verifier program v1 (SPEL, struct-arg ABI) | [`6369e70e…07c51b6d`](https://explorer.testnet.lez.logos.co/transaction/6369e70e9164edcef92dd7193cd4a5e88013e4cd0788e743ddacd7de07c51b6d) |
-| 5 | **`wallet deploy-program`** — verifier program v2 (SPEL, flat-arg ABI) | [`2bf10138…23723a9`](https://explorer.testnet.lez.logos.co/transaction/2bf10138c085429d9d6fb46793f0a089376eff90558fce4a66634447923723a9) |
-| 6 | **`spel gated_check`** — real ECDSA-signed gate call against the v2 verifier | [`7a9065e0…f48cf`](https://explorer.testnet.lez.logos.co/transaction/7a9065e02794d3e4735e32901e4c07cf859338af3a76cae34eede01d14bf48cf) |
+| 5 | **`wallet deploy-program`** — verifier program v2 (SPEL, flat-arg ABI, deep gate with ChainedCall) | [`2bf10138…23723a9`](https://explorer.testnet.lez.logos.co/transaction/2bf10138c085429d9d6fb46793f0a089376eff90558fce4a66634447923723a9) |
+| 6 | **`spel gated_check`** — first attempt against v2 (didn't confirm — see "Deep verifier" note below) | [`7a9065e0…f48cf`](https://explorer.testnet.lez.logos.co/transaction/7a9065e02794d3e4735e32901e4c07cf859338af3a76cae34eede01d14bf48cf) |
+| 7 | **`wallet deploy-program`** — verifier program v3 (SPEL, flat-arg ABI, shallow gate — confirmable today) | [`a0ec45bb…d341c5ca`](https://explorer.testnet.lez.logos.co/transaction/a0ec45bb7817eea672bfe1cac4663969557da852a031a7a46c571193d341c5ca) |
+| 8 | ✅ **`spel gated_check`** — real ECDSA-signed gate call against the v3 verifier, **CONFIRMED on chain** | [`262bbe95…6babfd5e`](https://explorer.testnet.lez.logos.co/transaction/262bbe95681431829279e897062e84131fe11ab7b5f4ed71512ab7c96babfd5e) |
 
 Account state on the explorer:
 

@@ -1,0 +1,52 @@
+# SPEL guest crate for the LP-0005 verifier program.
+#
+# Builds for `riscv32im-risc0-zkvm-elf` via `cargo risczero build`.
+# Separate workspace from the host crates so the RISC-V target
+# rustflags / panic strategy don't leak into the host build.
+#
+# Versions pinned identically to LP-0017's whistleblower-registry-guest:
+# spel-framework = Thompsonmina/spel#cli-vec-string (E0283 fix not yet upstream)
+# nssa_core      = logos-execution-zone tag v0.2.0-rc3
+# risc0-zkvm     = 3.0.5 (matches the rust-toolchain.toml 1.85 pin)
+# ruint          = =1.17.0 (rustc 1.88-dev compat — the risc0 builder is older
+#                            than 1.18.0's MSRV)
+
+[workspace]
+
+[package]
+name        = "attestation-verifier-shallow-guest"
+version     = "0.1.0"
+edition     = "2021"
+license     = "MIT OR Apache-2.0"
+description = "SPEL guest for the LP-0005 on-chain verifier program — shallow variant (host-side validation only, no chained call). Confirmable end-to-end via the `spel` CLI today."
+publish     = false
+
+[[bin]]
+name = "attestation_verifier_shallow"
+path = "src/bin/attestation_verifier_shallow.rs"
+
+[dependencies]
+spel-framework = { git = "https://github.com/Thompsonmina/spel.git",                          branch = "cli-vec-string" }
+nssa_core      = { git = "https://github.com/logos-blockchain/logos-execution-zone.git",      tag = "v0.2.0-rc3" }
+risc0-zkvm     = { version = "=3.0.5", features = ["std"] }
+
+serde          = { version = "1.0", features = ["derive"] }
+sha2           = { version = "0.10", default-features = false }
+k256           = { version = "0.13", default-features = false, features = ["ecdsa", "alloc"] }
+
+# Pinned for rustc 1.88-dev compatibility (matches LP-0017's pin).
+ruint          = "=1.17.0"
+
+# Note: PublicJournal is inlined into the guest source (not pulled from
+# attestation-core as a path-dep) because cargo-risczero's docker builder
+# sandboxes the build to the methods/guest directory.
+
+# Risc0 patches sha2 to use its hardware accelerator inside the guest.
+[patch.crates-io]
+sha2 = { git = "https://github.com/risc0/RustCrypto-hashes.git", tag = "sha2-v0.10.8-risczero.0" }
+
+[profile.release]
+opt-level     = 3
+lto           = "thin"
+codegen-units = 1
+panic         = "abort"

@@ -113,6 +113,21 @@ pub fn prove(req: ProveRequest) -> Result<AttestationProof> {
 
     let prover = default_prover();
     let prove_info = prover.prove_with_opts(env, ATTESTATION_ELF, &ProverOpts::default())?;
+
+    // Emit cycle / segment metrics for the CU-cost criterion. The host process
+    // already prints wall-clock; these are the in-zkVM compute units that the
+    // LEZ PPE pipeline charges for. Stats are stable across prover backends
+    // because they're a property of the guest binary, not the host hardware.
+    let stats = &prove_info.stats;
+    eprintln!(
+        "[prove-metrics] total_cycles={} segments={} user_cycles={} paging_cycles={} reserved_cycles={}",
+        stats.total_cycles,
+        stats.segments,
+        stats.user_cycles,
+        stats.paging_cycles,
+        stats.reserved_cycles,
+    );
+
     let receipt = prove_info.receipt;
     let journal: PublicJournal = receipt.journal.decode()?;
     Ok(AttestationProof { receipt, journal })

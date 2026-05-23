@@ -14,12 +14,14 @@ Prove that a shielded token account holds at least `N` tokens — without reveal
 - Block explorer: `https://explorer.testnet.lez.logos.co`
 - Signer (anchorer): [`CbgR6tj5kWx5oziiFptM7jMvrQeYY3Mzaao6ciuhSr2r`](https://explorer.testnet.lez.logos.co/account/CbgR6tj5kWx5oziiFptM7jMvrQeYY3Mzaao6ciuhSr2r)
 
-**Two on-chain programs — each independently verifiable via `getTransaction` JSON-RPC:**
+**On-chain programs + end-to-end gated-check submission — each tx independently verifiable via `getTransaction` JSON-RPC or by clicking the explorer link:**
 
-| Program | Deploy tx (click for explorer) | ImageID |
+| # | Action | Tx hash (click for explorer) |
 |---|---|---|
-| **Attestation circuit** — Risc0 guest proving `balance ≥ N` | [`4593060b…3db989d`](https://explorer.testnet.lez.logos.co/transaction/4593060b507fef640b7f9c3d25b75432a83bc7097a439334436e532983db989d) | `dbc40b94…6a9d4d` |
-| **Verifier program** — SPEL `#[lez_program]` gating attestations | [`6369e70e…07c51b6d`](https://explorer.testnet.lez.logos.co/transaction/6369e70e9164edcef92dd7193cd4a5e88013e4cd0788e743ddacd7de07c51b6d) | `4d47780d…0ac9bb` |
+| 1 | **`wallet deploy-program`** — attestation circuit (`balance ≥ N` Risc0 guest, ImageID `dbc40b94…6a9d4d`) | [`4593060b…3db989d`](https://explorer.testnet.lez.logos.co/transaction/4593060b507fef640b7f9c3d25b75432a83bc7097a439334436e532983db989d) |
+| 2 | **`wallet deploy-program`** — verifier program v1 (SPEL, struct-arg ABI, ImageID `4d47780d…0ac9bb`) | [`6369e70e…07c51b6d`](https://explorer.testnet.lez.logos.co/transaction/6369e70e9164edcef92dd7193cd4a5e88013e4cd0788e743ddacd7de07c51b6d) |
+| 3 | **`wallet deploy-program`** — verifier program v2 (SPEL, flat-arg ABI, ImageID `7715f791…d8a1db429`) | [`2bf10138…23723a9`](https://explorer.testnet.lez.logos.co/transaction/2bf10138c085429d9d6fb46793f0a089376eff90558fce4a66634447923723a9) |
+| 4 | **`spel gated_check`** — full pipeline call: real Risc0 receipt + signed ECDSA challenge → on-chain verifier | [`7a9065e0…f48cf`](https://explorer.testnet.lez.logos.co/transaction/7a9065e02794d3e4735e32901e4c07cf859338af3a76cae34eede01d14bf48cf) |
 
 Full deployment record (with reproduction commands) in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 

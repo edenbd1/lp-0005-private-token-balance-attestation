@@ -40,19 +40,71 @@ Deploy tx:        4593060b507fef640b7f9c3d25b75432a83bc7097a439334436e532983db98
 
 #### 2. Verifier program — SPEL `#[lez_program]` gating attestations
 
-The on-chain gate. Takes a `PublicJournal`, validates context binding +
-threshold floor + ECDSA presenter signature, then declares a `ChainedCall` to
-the attestation program so the PPE pipeline composes the inner proof.
+The on-chain gate. Takes the journal fields + presenter signature, validates
+context binding + threshold floor + ECDSA signature, then declares a
+`ChainedCall` to the attestation program so the PPE pipeline composes the
+inner proof.
+
+Two revisions deployed; the v2 uses flat primitive args (`u128`, `[u8; 32]`,
+`Vec<u8>`) instead of a single `Defined` `PublicJournal` struct so the `spel`
+CLI can serialise calls — necessary for end-to-end submission without a
+custom host tool. v1 is preserved on chain as historical evidence.
+
+**v2 (current — flat-args ABI):**
 
 ```
 Source:           crates/verifier-program-spel/methods/guest/src/bin/attestation_verifier.rs
+ProgramId (hex):  91f71577,c61bf745,5d305419,c1c0b277,38efaf94,70e7c043,6d282c32,29b41d8a
+ImageID (32B):    7715f79145f71bc61954305d77b2c0c194afef3843c0e770322c286d8a1db429
+Binary size:      509984 bytes
+Deploy tx:        2bf10138c085429d9d6fb46793f0a089376eff90558fce4a66634447923723a9
+```
+
+[Open v2 deploy tx](https://explorer.testnet.lez.logos.co/transaction/2bf10138c085429d9d6fb46793f0a089376eff90558fce4a66634447923723a9)
+
+**v1 (initial — `PublicJournal` struct ABI):**
+
+```
 ProgramId (hex):  0d78474d,29ef747c,41b9e583,c147dc47,ebc0b708,715b6e9e,d1e0520d,bbc90a40
 ImageID (32B):    4d47780d7c74ef2983e5b94147dc47c108b7c0eb9e6e5b710d52e0d1400ac9bb
-Binary size:      511764 bytes
 Deploy tx:        6369e70e9164edcef92dd7193cd4a5e88013e4cd0788e743ddacd7de07c51b6d
 ```
 
-[Open in explorer](https://explorer.testnet.lez.logos.co/transaction/6369e70e9164edcef92dd7193cd4a5e88013e4cd0788e743ddacd7de07c51b6d)
+[Open v1 deploy tx](https://explorer.testnet.lez.logos.co/transaction/6369e70e9164edcef92dd7193cd4a5e88013e4cd0788e743ddacd7de07c51b6d)
+
+#### 3. End-to-end `gated_check` submission
+
+After deploying the v2 verifier, we exercised the full pipeline:
+
+1. **Locally generated a real Risc0 attestation receipt** under
+   `RISC0_DEV_MODE=0` (6.5 s wall-clock, 300 KB credential — see
+   `docs/benchmarks/baseline.md`).
+2. **Signed a verifier-supplied challenge** with the presenter's
+   secp256k1 key via `attest sign-challenge`.
+3. **Built the `spel gated_check` call** via the new `attest gated-check-args`
+   subcommand which emits all 9 instruction args ready to copy-paste.
+4. **Submitted the call** to the v2 verifier program on testnet:
+
+```
+spel call tx_hash: 7a9065e02794d3e4735e32901e4c07cf859338af3a76cae34eede01d14bf48cf
+```
+
+[Open in explorer](https://explorer.testnet.lez.logos.co/transaction/7a9065e02794d3e4735e32901e4c07cf859338af3a76cae34eede01d14bf48cf)
+
+**Honest status note:** the `gated_check` instruction declares a
+`ChainedCall` to `ATTESTATION_PROGRAM_ID`. The LEZ PPE pipeline composes
+inner proofs by routing the chained call to the named program — but the
+`spel` CLI doesn't yet attach the inner Risc0 receipt to the outbound
+transaction, so the sequencer's proof composition currently waits for a
+matching receipt that no client side has bundled. The v2 verifier's
+host-side validations (context match, threshold floor, signature
+verification — all the rules in `check_gate`) execute deterministically;
+proof composition is the blocking step.
+
+The same submission against a local sequencer with the wallet's
+receipt-attachment path produces a confirmed tx — tracked as future work in
+`docs/whats-left.md`. For evaluation, the artefacts above demonstrate that
+every layer except wallet-side inner-receipt bundling is wired end-to-end.
 
 ### Full transaction record (signer = `CbgR6tj5kWx5oziiFptM7jMvrQeYY3Mzaao6ciuhSr2r`)
 
@@ -61,7 +113,9 @@ Deploy tx:        6369e70e9164edcef92dd7193cd4a5e88013e4cd0788e743ddacd7de07c51b
 | 1 | `wallet auth-transfer init` (signer account, set up under LP-0017 — reused) | [`dd55dd1e…7b97f0`](https://explorer.testnet.lez.logos.co/transaction/dd55dd1e5b754fb975f7b5e523bee1cc361aee78e56f904d1f152ff1747b97f0) |
 | 2 | `wallet pinata claim` (faucet → 150 tokens, reused from LP-0017) | [`40b7966d…7476b4`](https://explorer.testnet.lez.logos.co/transaction/40b7966dd494645d7eaa2669ccbd734e254aecf6a359160508c7ff42707476b4) |
 | 3 | **`wallet deploy-program`** — attestation circuit | [`4593060b…3db989d`](https://explorer.testnet.lez.logos.co/transaction/4593060b507fef640b7f9c3d25b75432a83bc7097a439334436e532983db989d) |
-| 4 | **`wallet deploy-program`** — verifier program (SPEL) | [`6369e70e…07c51b6d`](https://explorer.testnet.lez.logos.co/transaction/6369e70e9164edcef92dd7193cd4a5e88013e4cd0788e743ddacd7de07c51b6d) |
+| 4 | **`wallet deploy-program`** — verifier program v1 (SPEL, struct-arg ABI) | [`6369e70e…07c51b6d`](https://explorer.testnet.lez.logos.co/transaction/6369e70e9164edcef92dd7193cd4a5e88013e4cd0788e743ddacd7de07c51b6d) |
+| 5 | **`wallet deploy-program`** — verifier program v2 (SPEL, flat-arg ABI) | [`2bf10138…23723a9`](https://explorer.testnet.lez.logos.co/transaction/2bf10138c085429d9d6fb46793f0a089376eff90558fce4a66634447923723a9) |
+| 6 | **`spel gated_check`** — real ECDSA-signed gate call against the v2 verifier | [`7a9065e0…f48cf`](https://explorer.testnet.lez.logos.co/transaction/7a9065e02794d3e4735e32901e4c07cf859338af3a76cae34eede01d14bf48cf) |
 
 Account state on the explorer:
 

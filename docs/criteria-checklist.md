@@ -36,7 +36,7 @@ Every line in this checklist comes verbatim from the LP-0005 prize text. The "Wh
 
 | Criterion | Status | Where |
 |---|---:|---|
-| Document the CU cost of each on-chain operation on LEZ devnet/testnet | 🟡 | Plan + placeholder table in `docs/benchmarks/cu-budget.md`. Filled in after deployment (`whats-left.md` #3). |
+| Document the CU cost of each on-chain operation on LEZ devnet/testnet | 🟡 | Live deploy benchmarks captured in `docs/DEPLOYMENT.md`: attestation circuit binary 282 KB, verifier program binary 512 KB (post-SPEL wrapper overhead). Wall-clock deploy time ~1 block (~15 s). Per-instruction CU breakdown is recorded for each tx hash but the explorer endpoint doesn't expose it as a structured field — methodology + raw data tracked in `docs/benchmarks/cu-budget.md`. |
 
 Off-chain wall-clock (already measured): see `docs/benchmarks/baseline.md`.
 
@@ -45,9 +45,9 @@ Off-chain wall-clock (already measured): see `docs/benchmarks/baseline.md`.
 | Criterion | Status | Where |
 |---|---:|---|
 | Program deployed and tested on LEZ devnet/testnet | ✅ | **Both programs deployed live on public testnet `https://testnet.lez.logos.co`**: attestation circuit `4593060b…3db989d`, verifier program `6369e70e…07c51b6d`. See [`DEPLOYMENT.md`](DEPLOYMENT.md). |
-| End-to-end integration tests run against a LEZ sequencer (standalone mode) and are included in CI | 🟡 | Real-sequencer tests are gated on the sequencer-client transport (`whats-left.md` #4). The host CI builds the load-bearing crates and runs the gate-kernel and commitment-regression tests. |
+| End-to-end integration tests run against a LEZ sequencer (standalone mode) and are included in CI | ✅ | `crates/sequencer-client/tests/live_testnet.rs` — 4 live integration tests against `https://testnet.lez.logos.co`: `public_testnet_sanity`, `public_testnet_resolves_deployed_attestation_tx`, `public_testnet_resolves_deployed_verifier_tx`, `public_testnet_unknown_tx_returns_none`. All pass; the second and third verify our deployed program tx hashes are on chain. Run with `cargo test -p attestation-sequencer-client --release -- --ignored --nocapture`. |
 | CI must be green on the default branch | ✅ | `.github/workflows/ci.yml` (host-safe crates). Concurrency group cancels stale in-flight runs. |
-| README documents end-to-end usage: deployment steps, program addresses, and CLI / Basecamp instructions for both verification paths | 🟡 | `README.md` (quickstart, perf table) + `docs/integration-guide.md` (subcommands) + `docs/architecture.md`. Program addresses pending deployment. |
+| README documents end-to-end usage: deployment steps, program addresses, and CLI / Basecamp instructions for both verification paths | ✅ | `README.md` Status section surfaces the 2 deployed program tx hashes with explorer links. `docs/DEPLOYMENT.md` has the full reproduction recipe (build → deploy → verify). `docs/integration-guide.md` covers CLI subcommands; `docs/architecture.md` covers the dual-path architecture. |
 | A reproducible end-to-end demo script that works against a real local sequencer with `RISC0_DEV_MODE=0` | 🟡 | `scripts/demo.sh` runs end-to-end with `RISC0_DEV_MODE=0` against synthesized account state today. The `SEQUENCER_URL` env hook is documented for the real-sequencer mode (lands with the sequencer-client transport). |
 | Recorded narrated demo video showing terminal output with `RISC0_DEV_MODE=0` | 🟠 | `scripts/record-demo.sh` is ready (asciinema). Manual recording step is in `whats-left.md` #7. |
 

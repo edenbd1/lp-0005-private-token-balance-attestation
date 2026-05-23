@@ -63,6 +63,27 @@ enum Cmd {
         #[arg(long)]
         out: PathBuf,
     },
+    /// Emit the `spel gated_check` CLI arguments needed to submit an on-chain
+    /// verification tx against the deployed verifier program. Loads a real
+    /// credential, signs a verifier-supplied nonce, and prints the full
+    /// command line ready to copy-paste into a shell.
+    GatedCheckArgs {
+        /// Path to the binary credential produced by `attest prove`.
+        #[arg(long)]
+        credential: PathBuf,
+        /// Path to the presenter key JSON (from `attest keygen`).
+        #[arg(long)]
+        presenter: PathBuf,
+        /// Application context string (must match what `attest prove --context` used).
+        #[arg(long)]
+        context: String,
+        /// Floor on the attested threshold (must be ≤ journal.threshold).
+        #[arg(long)]
+        threshold: u128,
+        /// Hex-encoded 32-byte verifier-drawn nonce (use `attest challenge` to make one).
+        #[arg(long)]
+        nonce: String,
+    },
     /// Verify a credential locally (Risc0 + presenter signature).
     ///
     /// In a real challenge-response, `--nonce` and `--signature` come from the
@@ -196,6 +217,42 @@ fn main() -> Result<()> {
             let signature = pk.sign(&nonce_bytes, &journal);
             println!("{}", hex::encode(signature));
         }
+        Cmd::GatedCheckArgs {
+            credential,
+            presenter,
+            context,
+            threshold,
+            nonce,
+        } => {
+            let pk = load_presenter(&presenter)?;
+            let cred_bytes = std::fs::read(&credential)?;
+            let (receipt, _): (Receipt, _) =
+                bincode::serde::decode_from_slice(&cred_bytes, bincode::config::standard())?;
+            // Decode the journal from the credential (skip re-verifying to avoid
+            // DEV_MODE refusals — same pattern as SignChallenge).
+            let journal: attestation_core::PublicJournal = receipt
+                .journal
+                .decode()
+                .context("could not decode journal from credential")?;
+            let nonce_bytes = parse_nonce(&nonce)?;
+            let signature = pk.sign(&nonce_bytes, &journal);
+
+            // Emit the spel CLI flags. presenter-pubkey + signature use the
+            // LIST format (comma-separated u8 decimals) per the spel CLI help.
+            let pubkey_csv = bytes_as_csv(journal.presenter_pubkey.as_slice());
+            let sig_csv = bytes_as_csv(&signature);
+
+            let expected_context = context_id_from(&context);
+            println!("--merkle-root '{}'", hex::encode(journal.merkle_root));
+            println!("--threshold {}", journal.threshold);
+            println!("--context-id '{}'", hex::encode(journal.context_id));
+            println!("--presenter-pubkey '{pubkey_csv}'");
+            println!("--nullifier '{}'", hex::encode(journal.nullifier));
+            println!("--presenter-nonce '{}'", hex::encode(nonce_bytes));
+            println!("--presenter-signature-der '{sig_csv}'");
+            println!("--expected-context-id '{}'", hex::encode(expected_context));
+            println!("--minimum-threshold {threshold}");
+        }
         Cmd::Verify {
             credential,
             context,
@@ -272,6 +329,16 @@ fn sha256(b: &[u8]) -> [u8; 32] {
     let mut h = Sha256::new();
     h.update(b);
     h.finalize().into()
+}
+
+/// Render bytes as comma-separated u8 decimals (the format `spel` expects for
+/// `Vec<u8>` args via `--flag '0,1,2,...'`).
+fn bytes_as_csv(bytes: &[u8]) -> String {
+    bytes
+        .iter()
+        .map(|b| b.to_string())
+        .collect::<Vec<_>>()
+        .join(",")
 }
 
 fn parse_nonce(hex_in: &str) -> Result<[u8; 32]> {

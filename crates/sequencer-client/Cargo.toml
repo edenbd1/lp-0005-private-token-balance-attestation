@@ -4,10 +4,16 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Stub client for LEZ sequencer JSON-RPC (getProofForCommitment). To be fleshed out alongside the verifier-program SPEL wrapper."
+description = "Async HTTP client for the LEZ sequencer JSON-RPC API used by LP-0005 (getProofForCommitment, getAccount, getTransaction, getLastBlockId, sendTransaction)."
 
 [dependencies]
 attestation-core = { path = "../attestation-core", default-features = false, features = ["std"] }
 serde = { workspace = true, features = ["std"] }
 serde_json = "1"
 thiserror = "1"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+hex = { workspace = true, features = ["std"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+wiremock = "0.6"

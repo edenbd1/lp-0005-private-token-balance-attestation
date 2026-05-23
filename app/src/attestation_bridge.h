@@ -29,7 +29,10 @@ signals:
     void statusChanged();
 
 private:
+    static QString findAttest();
+
     QString m_status;
     bool m_credentialReady = false;
     QString m_credentialPath;
+    QString m_artefactsDir;
 };

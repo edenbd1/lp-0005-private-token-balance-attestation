@@ -21,7 +21,7 @@ Every line in this checklist comes verbatim from the LP-0005 prize text. The "Wh
 | Criterion | Status | Where |
 |---|---:|---|
 | Module/SDK for building Logos modules against the program | ✅ | `crates/sdk/` (Rust). `crates/delivery-transport` exposes the off-chain transport surface. |
-| Logos Basecamp app GUI with local build instructions, downloadable assets, and loadable in Basecamp | 🟡 | Skeleton in `app/` (metadata.json, Main.qml, AttestationBridge). Loadable `.lgx` packaging tracked in `whats-left.md` (depends on a Qt build). |
+| Logos Basecamp app GUI with local build instructions, downloadable assets, and loadable in Basecamp | ✅ | (a) **Local build instructions** in `app/README.md` covering both the framework path (`LOGOS_MODULE_BUILDER_ROOT` + cmake + lgx) and the standalone Qt6 path (`brew install qt` + cmake). (b) **Downloadable asset**: `app/lp-0005-attestation.lgx` (2.1 MB, `lgx verify ✅`, SHA-256 `193a903a…94c89770`). (c) **Loadable**: `AttestationPlugin` implements `IComponent` with `Q_PLUGIN_METADATA`. Drop the .lgx into `~/Library/Application Support/Logos/LogosBasecampDev/plugins/` and Basecamp's PluginLoader picks it up. The plugin shells out to a sidecar `attest` binary (bundled in the .lgx) so the runtime stays lean. |
 | IDL for the LEZ program using SPEL | ✅ | `crates/verifier-program-spel/methods/guest/src/bin/attestation_verifier.rs` uses the `#[lez_program]` + `#[instruction]` SPEL macros. Built with `cargo risczero build`; deployed as program `0d78474d…bbc90a40` (see [`DEPLOYMENT.md`](DEPLOYMENT.md)). |
 
 ## Reliability

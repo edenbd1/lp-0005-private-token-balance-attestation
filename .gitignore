@@ -34,3 +34,6 @@ artifacts/
 # External repos cloned for recon (not part of submission)
 _external/
 
+app/build/
+app/build-lgx/
+app/lib/

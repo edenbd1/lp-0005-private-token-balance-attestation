@@ -1981,6 +1981,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a5b0c77c1b780822bc749a33e39aeb2c07584ab93332303babeabb645298a76e"
 
 [[package]]
+name = "nostr-auth-gate"
+version = "0.1.0"
+dependencies = [
+ "attestation-core",
+ "attestation-sdk",
+ "attestation-verifier-offchain",
+ "base64",
+ "bincode 2.0.1",
+ "hex",
+ "k256",
+ "rand 0.8.6",
+ "risc0-zkvm",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "num-bigint"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"

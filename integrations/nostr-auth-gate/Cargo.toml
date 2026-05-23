@@ -1,0 +1,24 @@
+[package]
+name = "nostr-auth-gate"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Reference integration #4 (community starter): NIP-42-style relay auth gated by an LP-0005 attestation. Designed as a template for outside-party builders integrating LP-0005 into the Nostr ecosystem."
+
+[dependencies]
+attestation-core = { path = "../../crates/attestation-core", default-features = false, features = ["std"] }
+attestation-verifier-offchain = { path = "../../crates/verifier-offchain" }
+risc0-zkvm = { workspace = true, features = ["std", "client"] }
+serde = { workspace = true, features = ["std"] }
+serde_json = "1"
+sha2 = { workspace = true, features = ["std"] }
+thiserror = "1"
+hex = { workspace = true, features = ["std"] }
+base64 = "0.22"
+bincode = { version = "2", features = ["serde"] }
+
+[dev-dependencies]
+attestation-sdk = { path = "../../crates/sdk" }
+k256 = { version = "0.13", features = ["ecdsa"] }
+rand = "0.8"

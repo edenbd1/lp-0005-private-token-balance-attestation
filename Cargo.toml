@@ -13,6 +13,7 @@ members = [
     "integrations/governance-gate",
     "integrations/chat-gate",
     "integrations/premium-features",
+    "integrations/nostr-auth-gate",
 ]
 # The guest crate uses the riscv32im-risc0-zkvm-elf toolchain; excluding it
 # from the workspace keeps the host crates on stable host targets.

@@ -28,9 +28,12 @@ export RISC0_DEV_MODE
 
 # Public-testnet deployed program identifiers (see docs/DEPLOYMENT.md).
 ATTESTATION_PROGRAM_ID=dbc40b94eda637ae958a393438d37c11e31a2e535939d952488b4760b46a9d4d
-VERIFIER_PROGRAM_ID=7715f79145f71bc61954305d77b2c0c194afef3843c0e770322c286d8a1db429
+VERIFIER_DEEP_PROGRAM_ID=7715f79145f71bc61954305d77b2c0c194afef3843c0e770322c286d8a1db429
+VERIFIER_SHALLOW_PROGRAM_ID=b32c6662bb7eba466284576e7228ecf58743d1a6efbe8887e94d3ddfbf85952a
 ATTESTATION_DEPLOY_TX=4593060b507fef640b7f9c3d25b75432a83bc7097a439334436e532983db989d
-VERIFIER_DEPLOY_TX=2bf10138c085429d9d6fb46793f0a089376eff90558fce4a66634447923723a9
+VERIFIER_DEEP_DEPLOY_TX=2bf10138c085429d9d6fb46793f0a089376eff90558fce4a66634447923723a9
+VERIFIER_SHALLOW_DEPLOY_TX=a0ec45bb7817eea672bfe1cac4663969557da852a031a7a46c571193d341c5ca
+CONFIRMED_GATED_CHECK_TX=262bbe95681431829279e897062e84131fe11ab7b5f4ed71512ab7c96babfd5e
 
 ARTIFACTS="$ROOT/artifacts/demo"
 mkdir -p "$ARTIFACTS"
@@ -55,17 +58,23 @@ BLOCK=$(curl -s -X POST "$SEQUENCER_URL" -H 'Content-Type: application/json' \
 echo "  block height = $BLOCK"
 echo
 
-echo "[3/7] verify on-chain deployments exist"
-for label in "attestation:$ATTESTATION_DEPLOY_TX" "verifier:$VERIFIER_DEPLOY_TX"; do
+echo "[3/7] verify on-chain deployments + the confirmed gated_check call"
+for label in \
+  "attestation circuit deploy:$ATTESTATION_DEPLOY_TX" \
+  "verifier program v2 (deep gate) deploy:$VERIFIER_DEEP_DEPLOY_TX" \
+  "verifier program v3 (shallow gate) deploy:$VERIFIER_SHALLOW_DEPLOY_TX" \
+  "✅ CONFIRMED gated_check call (v3, real ECDSA-signed):$CONFIRMED_GATED_CHECK_TX"
+do
   NAME="${label%%:*}"
   HASH="${label#*:}"
   RES=$(curl -s -X POST "$SEQUENCER_URL" -H 'Content-Type: application/json' \
     -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"getTransaction\",\"params\":[\"$HASH\"]}" | \
     jq -r '.result | if . == null then "MISSING" else "PRESENT" end')
   if [[ "$RES" == "PRESENT" ]]; then
-    echo "  ✅ $NAME deploy tx $HASH on chain"
+    echo "  ✅ $NAME"
+    echo "     tx $HASH"
   else
-    echo "  ❌ $NAME deploy tx $HASH NOT on chain"
+    echo "  ❌ $NAME — tx $HASH NOT on chain"
     exit 1
   fi
 done
@@ -114,11 +123,15 @@ echo "[7/7] build spel gated_check call args (ready to submit on chain)"
   --threshold  "$THRESHOLD" \
   --nonce      "$NONCE" > "$ARTIFACTS/gated-check.args"
 echo "  ↳ written to $ARTIFACTS/gated-check.args"
-echo "  ↳ submit with:"
-echo "      spel --idl idl/attestation_verifier.idl.json \\"
-echo "           --program $VERIFIER_PROGRAM_ID \\"
+echo "  ↳ submit against the v3 shallow verifier program with:"
+echo "      spel --idl idl/attestation_verifier_shallow.idl.json \\"
+echo "           --program crates/verifier-program-spel/methods/guest-shallow/target/riscv32im-risc0-zkvm-elf/docker/attestation_verifier_shallow.bin \\"
 echo "           -- gated_check --presenter Public/<your-pubkey> \\"
 echo "           \$(cat $ARTIFACTS/gated-check.args | tr '\\n' ' ')"
+echo
+echo "  ↳ reference confirmed call:"
+echo "      tx $CONFIRMED_GATED_CHECK_TX"
+echo "      https://explorer.testnet.lez.logos.co/transaction/$CONFIRMED_GATED_CHECK_TX"
 echo
 
 echo "==========================================================="

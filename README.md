@@ -25,6 +25,8 @@ Prove that a shielded token account holds at least `N` tokens — without reveal
 
 Full deployment record (with reproduction commands) in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
+**Reproduce in 30 seconds:** `bash scripts/demo.sh` — runs the full pipeline against the public testnet, confirms all four tx hashes are on chain, generates a real Risc0 proof under `RISC0_DEV_MODE=0`, runs the challenge-response off-chain verification, and emits the `spel gated_check` call args ready to copy-paste.
+
 **Basecamp plugin:** [`app/lp-0005-attestation.lgx`](app/lp-0005-attestation.lgx) — 2.1 MB, `lgx verify ✅`, SHA-256 `193a903a0823cdf4f8ef3a333bc28c81e240c1b2faf5b7f8fd93bc1094c89770`. Drop into `~/Library/Application Support/Logos/LogosBasecampDev/plugins/` to load.
 
 ### Repository artifacts

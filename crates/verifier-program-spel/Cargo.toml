@@ -12,8 +12,8 @@ license = "MIT OR Apache-2.0"
 crate-type = ["rlib"]
 
 [dependencies]
-attestation-core = { path = "../attestation-core" }
-attestation-verifier-program = { path = "../verifier-program" }
+attestation-core = { path = "../attestation-core", version = "0.1.0"  }
+attestation-verifier-program = { path = "../verifier-program", version = "0.1.0"  }
 serde = { version = "1", default-features = false, features = ["derive", "alloc"] }
 
 # Resolved by the host Logos workspace:

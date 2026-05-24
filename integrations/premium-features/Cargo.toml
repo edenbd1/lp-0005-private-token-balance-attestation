@@ -7,15 +7,15 @@ repository.workspace = true
 description = "Reference integration #3: privacy-preserving feature tiering. Slot for an outside-party port."
 
 [dependencies]
-attestation-core = { path = "../../crates/attestation-core", default-features = false, features = ["std"] }
-attestation-verifier-offchain = { path = "../../crates/verifier-offchain" }
+attestation-core = { path = "../../crates/attestation-core", version = "0.1.0", default-features = false, features = ["std"]  }
+attestation-verifier-offchain = { path = "../../crates/verifier-offchain", version = "0.1.0"  }
 risc0-zkvm = { workspace = true, features = ["std", "client"] }
 serde = { workspace = true, features = ["std"] }
 sha2 = { workspace = true, features = ["std"] }
 thiserror = "1"
 
 [dev-dependencies]
-attestation-sdk = { path = "../../crates/sdk" }
-attestation-verifier-program = { path = "../../crates/verifier-program" }
+attestation-sdk = { path = "../../crates/sdk", version = "0.1.0"  }
+attestation-verifier-program = { path = "../../crates/verifier-program", version = "0.1.0"  }
 k256 = { version = "0.13", features = ["ecdsa"] }
 rand = "0.8"

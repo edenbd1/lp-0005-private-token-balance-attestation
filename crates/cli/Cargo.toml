@@ -11,9 +11,9 @@ name = "attest"
 path = "src/bin/attest.rs"
 
 [dependencies]
-attestation-sdk = { path = "../sdk" }
-attestation-core = { path = "../attestation-core", default-features = false, features = ["std"] }
-attestation-verifier-offchain = { path = "../verifier-offchain" }
+attestation-sdk = { path = "../sdk", version = "0.1.0"  }
+attestation-core = { path = "../attestation-core", version = "0.1.0", default-features = false, features = ["std"]  }
+attestation-verifier-offchain = { path = "../verifier-offchain", version = "0.1.0"  }
 risc0-zkvm = { workspace = true, features = ["std", "client"] }
 clap = { version = "4", features = ["derive"] }
 anyhow = { workspace = true }

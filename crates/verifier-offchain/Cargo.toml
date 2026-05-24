@@ -7,8 +7,8 @@ repository.workspace = true
 description = "Off-chain verifier library for LP-0005 attestation credentials."
 
 [dependencies]
-attestation-core = { path = "../attestation-core", default-features = false, features = ["std"] }
-attestation-methods = { path = "../attestation-circuit/methods" }
+attestation-core = { path = "../attestation-core", version = "0.1.0", default-features = false, features = ["std"]  }
+attestation-methods = { path = "../attestation-circuit/methods", version = "0.1.0"  }
 # `client` feature stays here so `Receipt::verify` is reachable from downstream callers
 # (governance-gate, chat-gate, integrations).
 risc0-zkvm = { workspace = true, features = ["std", "client"] }
@@ -19,4 +19,4 @@ k256 = { version = "0.13", features = ["ecdsa"] }
 thiserror = "1"
 
 [dev-dependencies]
-attestation-sdk = { path = "../sdk" }
+attestation-sdk = { path = "../sdk", version = "0.1.0"  }

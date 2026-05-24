@@ -11,8 +11,8 @@ name = "baseline"
 path = "src/bin/baseline.rs"
 
 [dependencies]
-attestation-core = { path = "../attestation-core" }
-attestation-methods = { path = "methods" }
+attestation-core = { path = "../attestation-core", version = "0.1.0"  }
+attestation-methods = { path = "methods", version = "0.1.0"  }
 risc0-zkvm = { workspace = true, features = ["std", "client"] }
 sha2 = { workspace = true, features = ["std"] }
 serde = { workspace = true, features = ["std"] }

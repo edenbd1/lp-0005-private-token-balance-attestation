@@ -20,3 +20,6 @@ default = []
 # Enables the Qt-helper-backed Logos Delivery transport (see src/qt_bridge.rs).
 # Requires a separately installed logos-delivery-helper binary.
 qt-bridge = []
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }

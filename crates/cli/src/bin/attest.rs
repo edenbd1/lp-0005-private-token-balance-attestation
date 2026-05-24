@@ -6,7 +6,9 @@
 //!   attest verify --credential credential.bin --presenter presenter.key --context "gov-v1" --threshold 100000
 
 use anyhow::{Context, Result};
-use attestation_sdk::{precompute_leaf, prove, synthetic_merkle_path, PresenterKey, ProveRequest};
+use attestation_sdk::{
+    precompute_leaf, prove, prove_groth16, synthetic_merkle_path, PresenterKey, ProveRequest,
+};
 use attestation_verifier_offchain::verify_credential;
 use clap::{Parser, Subcommand};
 use risc0_zkvm::Receipt;
@@ -60,6 +62,11 @@ enum Cmd {
         threshold: u128,
         #[arg(long)]
         context: String,
+        /// Wrap the inner STARK in a Groth16 SNARK (≈256-byte succinct receipt).
+        /// Heavier prove step (requires the BN254 CRS); the resulting credential
+        /// fits any Logos Delivery payload limit.
+        #[arg(long)]
+        groth16: bool,
         #[arg(long)]
         out: PathBuf,
     },
@@ -137,6 +144,7 @@ fn main() -> Result<()> {
             threshold,
             context,
             out,
+            groth16,
         } => {
             let pk = load_presenter(&presenter)?;
             let context_id = context_id_from(&context);
@@ -167,9 +175,9 @@ fn main() -> Result<()> {
             req.merkle_path = path;
             req.merkle_root = root;
 
-            println!("proving...");
+            println!("proving{}...", if groth16 { " (Groth16-wrapped)" } else { "" });
             let t = Instant::now();
-            let proof = prove(req)?;
+            let proof = if groth16 { prove_groth16(req)? } else { prove(req)? };
             println!("proved in {:?}", t.elapsed());
 
             let bytes = bincode::serde::encode_to_vec(&proof.receipt, bincode::config::standard())?;

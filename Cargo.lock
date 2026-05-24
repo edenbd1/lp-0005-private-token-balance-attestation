@@ -402,6 +402,7 @@ dependencies = [
  "serde",
  "sha2",
  "thiserror 1.0.69",
+ "tokio",
 ]
 
 [[package]]
@@ -452,6 +453,7 @@ dependencies = [
  "attestation-sdk",
  "hex",
  "k256",
+ "rand 0.8.6",
  "risc0-zkvm",
  "serde",
  "sha2",

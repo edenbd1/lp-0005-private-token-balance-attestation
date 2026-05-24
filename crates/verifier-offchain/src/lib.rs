@@ -98,3 +98,206 @@ pub fn verify_credential(
     verify_presenter_signature(&journal, presenter_nonce, presenter_signature_der)?;
     Ok(journal)
 }
+
+#[cfg(test)]
+mod unit_tests {
+    use super::*;
+    use k256::ecdsa::{signature::Signer, SigningKey};
+    use rand::Rng;
+
+    fn synthetic_journal(presenter_pubkey: [u8; 33]) -> PublicJournal {
+        PublicJournal {
+            merkle_root: [0xaa; 32],
+            threshold: 100,
+            context_id: [0xbb; 32],
+            presenter_pubkey,
+            nullifier: [0xcc; 32],
+        }
+    }
+
+    fn sign_journal(sk: &SigningKey, nonce: &[u8; 32], journal: &PublicJournal) -> Vec<u8> {
+        let digest = presenter_challenge_digest(nonce, journal);
+        let sig: Signature = sk.sign(&digest);
+        sig.to_der().as_bytes().to_vec()
+    }
+
+    fn fresh_nonce() -> [u8; 32] {
+        let mut n = [0u8; 32];
+        rand::thread_rng().fill(&mut n);
+        n
+    }
+
+    #[test]
+    fn challenge_digest_is_deterministic() {
+        let pubkey = [0x02u8; 33];
+        let j = synthetic_journal(pubkey);
+        let nonce = [0u8; 32];
+        let d1 = presenter_challenge_digest(&nonce, &j);
+        let d2 = presenter_challenge_digest(&nonce, &j);
+        assert_eq!(d1, d2);
+    }
+
+    #[test]
+    fn challenge_digest_changes_with_nonce() {
+        let j = synthetic_journal([0x02u8; 33]);
+        let n1 = [0u8; 32];
+        let mut n2 = [0u8; 32];
+        n2[0] = 1;
+        assert_ne!(
+            presenter_challenge_digest(&n1, &j),
+            presenter_challenge_digest(&n2, &j)
+        );
+    }
+
+    #[test]
+    fn challenge_digest_changes_with_threshold() {
+        let mut j = synthetic_journal([0x02u8; 33]);
+        let nonce = [0u8; 32];
+        let d1 = presenter_challenge_digest(&nonce, &j);
+        j.threshold += 1;
+        let d2 = presenter_challenge_digest(&nonce, &j);
+        assert_ne!(d1, d2);
+    }
+
+    #[test]
+    fn challenge_digest_changes_with_context_id() {
+        let mut j = synthetic_journal([0x02u8; 33]);
+        let nonce = [0u8; 32];
+        let d1 = presenter_challenge_digest(&nonce, &j);
+        j.context_id[0] ^= 0xff;
+        let d2 = presenter_challenge_digest(&nonce, &j);
+        assert_ne!(d1, d2);
+    }
+
+    #[test]
+    fn challenge_digest_changes_with_nullifier() {
+        let mut j = synthetic_journal([0x02u8; 33]);
+        let nonce = [0u8; 32];
+        let d1 = presenter_challenge_digest(&nonce, &j);
+        j.nullifier[0] ^= 0xff;
+        let d2 = presenter_challenge_digest(&nonce, &j);
+        assert_ne!(d1, d2);
+    }
+
+    #[test]
+    fn verify_signature_accepts_valid() {
+        let sk = SigningKey::random(&mut rand::thread_rng());
+        let pk_bytes = sk
+            .verifying_key()
+            .to_encoded_point(true)
+            .as_bytes()
+            .to_vec();
+        let mut pubkey = [0u8; 33];
+        pubkey.copy_from_slice(&pk_bytes);
+        let j = synthetic_journal(pubkey);
+        let nonce = fresh_nonce();
+        let sig = sign_journal(&sk, &nonce, &j);
+        verify_presenter_signature(&j, &nonce, &sig).unwrap();
+    }
+
+    #[test]
+    fn verify_signature_rejects_wrong_nonce() {
+        let sk = SigningKey::random(&mut rand::thread_rng());
+        let pk_bytes = sk
+            .verifying_key()
+            .to_encoded_point(true)
+            .as_bytes()
+            .to_vec();
+        let mut pubkey = [0u8; 33];
+        pubkey.copy_from_slice(&pk_bytes);
+        let j = synthetic_journal(pubkey);
+        let nonce = fresh_nonce();
+        let sig = sign_journal(&sk, &nonce, &j);
+        let different_nonce = fresh_nonce();
+        assert!(matches!(
+            verify_presenter_signature(&j, &different_nonce, &sig),
+            Err(VerifyError::SignatureRejected)
+        ));
+    }
+
+    #[test]
+    fn verify_signature_rejects_garbage_signature() {
+        let pubkey = [0x02u8; 33];
+        let j = synthetic_journal(pubkey);
+        let nonce = fresh_nonce();
+        let garbage = vec![0u8, 1, 2, 3, 4];
+        assert!(matches!(
+            verify_presenter_signature(&j, &nonce, &garbage),
+            Err(VerifyError::InvalidSignature)
+        ));
+    }
+
+    #[test]
+    fn verify_signature_rejects_bad_pubkey() {
+        let mut j = synthetic_journal([0u8; 33]); // 33 zero bytes is not a valid compressed point
+        j.presenter_pubkey = [0u8; 33];
+        let nonce = fresh_nonce();
+        let some_sig = vec![0x30, 0x06, 0x02, 0x01, 0x00, 0x02, 0x01, 0x00];
+        assert!(matches!(
+            verify_presenter_signature(&j, &nonce, &some_sig),
+            Err(VerifyError::InvalidPubkey)
+        ));
+    }
+
+    #[test]
+    fn verify_signature_rejects_other_signers_key() {
+        let alice = SigningKey::random(&mut rand::thread_rng());
+        let bob = SigningKey::random(&mut rand::thread_rng());
+        // journal binds to Alice's key, Bob signs
+        let alice_pk_bytes = alice
+            .verifying_key()
+            .to_encoded_point(true)
+            .as_bytes()
+            .to_vec();
+        let mut pubkey = [0u8; 33];
+        pubkey.copy_from_slice(&alice_pk_bytes);
+        let j = synthetic_journal(pubkey);
+        let nonce = fresh_nonce();
+        let sig_by_bob = sign_journal(&bob, &nonce, &j);
+        assert!(matches!(
+            verify_presenter_signature(&j, &nonce, &sig_by_bob),
+            Err(VerifyError::SignatureRejected)
+        ));
+    }
+
+    #[test]
+    fn challenge_digest_includes_pubkey() {
+        let mut j = synthetic_journal([0x02u8; 33]);
+        let nonce = [0u8; 32];
+        let d1 = presenter_challenge_digest(&nonce, &j);
+        j.presenter_pubkey[10] ^= 0xff;
+        let d2 = presenter_challenge_digest(&nonce, &j);
+        assert_ne!(d1, d2);
+    }
+
+    #[test]
+    fn challenge_digest_includes_merkle_root() {
+        let mut j = synthetic_journal([0x02u8; 33]);
+        let nonce = [0u8; 32];
+        let d1 = presenter_challenge_digest(&nonce, &j);
+        j.merkle_root[0] ^= 0xff;
+        let d2 = presenter_challenge_digest(&nonce, &j);
+        assert_ne!(d1, d2);
+    }
+
+    #[test]
+    fn verify_error_messages_are_short_and_single_line() {
+        // Each VerifyError Display impl should be a short, single-line
+        // diagnostic that doesn't accidentally embed multi-line content
+        // (e.g. an entire receipt dump).
+        let errs = [
+            VerifyError::Receipt("dummy".into()),
+            VerifyError::Journal("dummy".into()),
+            VerifyError::InvalidPubkey,
+            VerifyError::InvalidSignature,
+            VerifyError::SignatureRejected,
+            VerifyError::ContextMismatch,
+            VerifyError::ThresholdTooLow,
+        ];
+        for e in &errs {
+            let s = e.to_string();
+            assert!(s.len() < 200, "VerifyError display too verbose: {s}");
+            assert!(!s.contains('\n'), "VerifyError display has newline: {s}");
+        }
+    }
+}

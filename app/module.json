@@ -1,0 +1,28 @@
+{
+  "name": "lp_0005_attestation",
+  "version": "0.1.0",
+  "description": "Private token balance attestation — generate and present LP-0005 credentials from inside Basecamp",
+  "author": "edenbd1",
+  "type": "ui",
+  "main": "lp_0005_attestation",
+  "dependencies": [
+    "logos-delivery-module"
+  ],
+  "category": "privacy",
+  "build": {
+    "type": "cmake",
+    "files": [
+      "src/plugin.cpp",
+      "src/plugin.h",
+      "src/attestation_bridge.cpp",
+      "src/attestation_bridge.h",
+      "qml/Main.qml",
+      "qml/qmldir",
+      "assets/resources.qrc"
+    ]
+  },
+  "capabilities": [
+    "ui_components",
+    "delivery_consumer"
+  ]
+}

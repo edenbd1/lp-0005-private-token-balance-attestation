@@ -99,8 +99,8 @@ pub fn verify_nip42_with_lp0005(
         .try_into()
         .map_err(|_| NostrGateError::BadHex("nonce must be exactly 32 bytes".into()))?;
 
-    let signature_bytes = hex::decode(&tag.signature_hex)
-        .map_err(|e| NostrGateError::BadHex(e.to_string()))?;
+    let signature_bytes =
+        hex::decode(&tag.signature_hex).map_err(|e| NostrGateError::BadHex(e.to_string()))?;
 
     let context_id = context_id_for_relay(relay_context);
 

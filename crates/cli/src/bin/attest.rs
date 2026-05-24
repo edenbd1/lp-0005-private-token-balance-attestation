@@ -175,9 +175,16 @@ fn main() -> Result<()> {
             req.merkle_path = path;
             req.merkle_root = root;
 
-            println!("proving{}...", if groth16 { " (Groth16-wrapped)" } else { "" });
+            println!(
+                "proving{}...",
+                if groth16 { " (Groth16-wrapped)" } else { "" }
+            );
             let t = Instant::now();
-            let proof = if groth16 { prove_groth16(req)? } else { prove(req)? };
+            let proof = if groth16 {
+                prove_groth16(req)?
+            } else {
+                prove(req)?
+            };
             println!("proved in {:?}", t.elapsed());
 
             let bytes = bincode::serde::encode_to_vec(&proof.receipt, bincode::config::standard())?;

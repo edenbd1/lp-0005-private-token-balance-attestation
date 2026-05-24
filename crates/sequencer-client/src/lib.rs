@@ -155,10 +155,7 @@ impl SequencerClient {
     /// base64-encoded transaction blob, or `None` if the hash is unknown.
     /// The blob is opaque (LEZ transaction envelope); callers typically just
     /// check presence as proof a deploy / submit landed on chain.
-    pub async fn get_transaction(
-        &self,
-        tx_hash: &str,
-    ) -> Result<Option<String>, ClientError> {
+    pub async fn get_transaction(&self, tx_hash: &str) -> Result<Option<String>, ClientError> {
         let v: serde_json::Value = self
             .call("getTransaction", serde_json::json!([tx_hash]))
             .await?;
@@ -199,10 +196,7 @@ impl SequencerClient {
 
     /// `sendTransaction(blob_base64: String) -> tx_hash: String` — submit a
     /// fully-signed transaction and return its hash.
-    pub async fn send_transaction(
-        &self,
-        tx_blob_base64: &str,
-    ) -> Result<String, ClientError> {
+    pub async fn send_transaction(&self, tx_blob_base64: &str) -> Result<String, ClientError> {
         self.call("sendTransaction", serde_json::json!([tx_blob_base64]))
             .await
     }

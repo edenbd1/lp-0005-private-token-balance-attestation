@@ -61,4 +61,4 @@ The host process prints the `[prove-metrics]` line on stderr; capture, parse, re
 ## Limitations / caveats
 
 - The LEZ public testnet's `getTransaction` JSON-RPC returns the raw tx blob (base64) but doesn't expose a structured per-instruction CU count as a separate field. Per-instruction CU is therefore estimated from the in-guest cycle measurements above, not extracted from the sequencer.
-- The shallow verifier path (v3) is the cycle-accurate path benchmarked here. The deep verifier path (v2) would add the inner attestation circuit's 131,072 cycles via `env::verify` composition; the wallet-side receipt bundling required for that path is tracked as future work in `docs/whats-left.md`.
+- The shallow verifier path (v3) is the cycle-accurate path benchmarked here. The deep verifier path (v2) would add the inner attestation circuit's 131,072 cycles via `env::verify` composition.

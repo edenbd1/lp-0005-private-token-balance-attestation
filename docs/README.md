@@ -9,7 +9,6 @@
 | [integration-guide.md](./integration-guide.md) | Step-by-step for adding LP-0005 to your app |
 | [faq.md](./faq.md) | Common questions |
 | [glossary.md](./glossary.md) | LEZ / SPEL / Risc0 / LP-0005 terminology |
-| [whats-left.md](./whats-left.md) | Open scope before submission |
 | [criteria-checklist.md](./criteria-checklist.md) | Every prize success criterion → artifact mapping |
 | [error-codes.md](./error-codes.md) | Deterministic error codes for both verifiers |
 | [acknowledgments.md](./acknowledgments.md) | Upstream prior art |

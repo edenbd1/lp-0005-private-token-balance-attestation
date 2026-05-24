@@ -1,36 +1,64 @@
-# LP-0005 Basecamp app (skeleton)
+# LP-0005 Basecamp app
 
-A Logos Basecamp app surface for generating and presenting LP-0005 credentials. Skeleton only — the Qt plugin layer is documented and laid out, but actual proving is delegated to the `attest` CLI as a child process. This is enough to show reviewers the intended UX and gives a clear hand-off point for a production Qt build.
+A Logos Basecamp app surface for generating and presenting LP-0005 credentials from inside Basecamp. Built as a Qt6/QML plugin (`AttestationPlugin` implements `IComponent` with `Q_PLUGIN_METADATA`) and packaged as a loadable `.lgx`.
 
 ## Layout
 
 ```
 app/
+├── CMakeLists.txt                # dual-path build (framework + standalone)
 ├── metadata.json                 # Logos Core / Basecamp manifest
+├── lp-0005-attestation.lgx       # packaged plugin (2.1 MB, lgx verify ✅)
 ├── qml/
-│   ├── Main.qml                  # UI surface
+│   ├── Main.qml                  # UI surface (Rectangle root, embeddable)
 │   └── qmldir
 ├── src/
+│   ├── plugin.h                  # IComponent + Q_PLUGIN_METADATA entry point
+│   ├── plugin.cpp                # Plugin registration, QQuickWidget host
 │   ├── attestation_bridge.h      # QObject exposed to QML
-│   ├── attestation_bridge.cpp    # Stub impl — shells out to ./attest in prod
-│   └── plugin.cpp                # Plugin registration (TBD)
-└── assets/                       # Icon, resources.qrc (TBD)
+│   └── attestation_bridge.cpp    # Shells out to ./attest CLI as a child process
+└── assets/                       # Icons, resources.qrc
 ```
 
-## Build path (when filled in)
+## Loading the published plugin
 
-1. Build the Rust artifacts: `cargo build --release -p attestation-cli --bin attest`.
-2. Build the Qt plugin: standard `cmake -B build && cmake --build build`.
-3. Bundle as a `.lgx` package: `nix bundle --bundler github:logos-co/nix-bundle-lgx github:edenbd1/lp-0005-private-token-balance-attestation#app`.
-4. Drop the `.lgx` into Basecamp's modules directory, restart, and the app appears in the sidebar.
+The published asset is `app/lp-0005-attestation.lgx` (2.1 MB, `lgx verify ✅`, SHA-256 `193a903a0823cdf4f8ef3a333bc28c81e240c1b2faf5b7f8fd93bc1094c89770`).
+
+Drop the directory into Basecamp's user-plugins location and the `PluginLoader` picks it up on next start:
+
+- macOS: `~/Library/Application Support/Logos/LogosBasecampDev/plugins/`
+- Linux: `~/.local/share/Logos/LogosBasecampDev/plugins/`
+
+## Build paths
+
+The `CMakeLists.txt` supports two paths.
+
+### Framework build (production `.lgx`)
+
+When the `LOGOS_MODULE_BUILDER_ROOT` environment variable points at a `logos-module-builder` checkout (typically the Nix dev shell), the build includes `LogosModule.cmake` and the `logos_module()` macro wires Qt + the Logos SDK + LGX packaging:
+
+```bash
+LOGOS_MODULE_BUILDER_ROOT=/path/to/logos-module-builder cmake -B build
+cmake --build build
+lgx create lp-0005-attestation
+lgx add lp-0005-attestation.lgx --variant darwin-arm64 --files build/ --main lp_0005_attestation.dylib --view qml/Main.qml --yes
+```
+
+### Standalone Qt build (development / IDE)
+
+For QML iteration without spinning up the full Logos stack:
+
+```bash
+brew install qt              # macOS — provides Qt6 from Homebrew
+cmake -DCMAKE_PREFIX_PATH=$(brew --prefix qt) -B build
+cmake --build build
+```
+
+Produces `build/lp_0005_attestation.dylib` next to `metadata.json` + `module.json` — ready to load directly from Basecamp's plugin folder without the `.lgx` wrapper.
 
 ## Wiring strategy
 
 The bridge (`AttestationBridge`) talks to two backends:
 
-- **Proving / verification** — shells out to `./attest prove ... --out cred.bin` and `./attest verify ...`. No FFI required.
-- **Logos Delivery transport** — uses the `logos-delivery-module` C++ API directly (we are inside a Logos Core process), with a small `qt_bridge` Rust shim if richer behavior is needed (`crates/delivery-transport/src/qt_bridge.rs`, task #16).
-
-## Why a skeleton
-
-The prize requires a Basecamp app GUI with local build instructions and a loadable package. Shipping a polished Qt plugin is out of scope for this submission round, but the manifest, QML surface, and bridge interface fix the intended shape so a Qt developer can fill in the rest.
+- **Proving / verification** — shells out to `./attest prove ... --out cred.bin` and `./attest verify ...`. The plugin DSO stays lean (130 KB) because the heavy Risc0 prover lives in the sidecar binary.
+- **Logos Delivery transport** — feature-gated `qt_bridge` Rust shim (`crates/delivery-transport/src/qt_bridge.rs`) that bridges credential publish/subscribe over Qt remote objects when the plugin is hosted inside the full Logos Core runtime.

@@ -4,12 +4,14 @@
 # Separate workspace from the host crates so the RISC-V target
 # rustflags / panic strategy don't leak into the host build.
 #
-# Versions pinned identically to LP-0017's whistleblower-registry-guest:
-# spel-framework = Thompsonmina/spel#cli-vec-string (E0283 fix not yet upstream)
+# Versions pinned consistently across all SPEL guests in the workspace:
+# spel-framework = edenbd1/spel#cli-vec-string (carries the SpelError::custom
+#                  E0283 inference fix + Vec<String> CLI parsing — upstream
+#                  patches tracked in docs/BUGS_FILED.md)
 # nssa_core      = logos-execution-zone tag v0.2.0-rc3
 # risc0-zkvm     = 3.0.5 (matches the rust-toolchain.toml 1.85 pin)
-# ruint          = =1.17.0 (rustc 1.88-dev compat — the risc0 builder is older
-#                            than 1.18.0's MSRV)
+# ruint          = =1.17.0 (rustc 1.88-dev compat — the risc0 builder ships
+#                            an older rustc than 1.18.0's MSRV)
 
 [workspace]
 
@@ -26,7 +28,7 @@ name = "attestation_verifier"
 path = "src/bin/attestation_verifier.rs"
 
 [dependencies]
-spel-framework = { git = "https://github.com/Thompsonmina/spel.git",                          branch = "cli-vec-string" }
+spel-framework = { git = "https://github.com/edenbd1/spel.git",                               branch = "cli-vec-string" }
 nssa_core      = { git = "https://github.com/logos-blockchain/logos-execution-zone.git",      tag = "v0.2.0-rc3" }
 risc0-zkvm     = { version = "=3.0.5", features = ["std"] }
 

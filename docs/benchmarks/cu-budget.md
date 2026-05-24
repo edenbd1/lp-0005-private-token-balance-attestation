@@ -18,7 +18,18 @@ proved in 6.524752166s
 | `paging_cycles` | **23,185** | Cycles charged by the Risc0 zkVM for memory paging. Fixed overhead independent of input size. |
 | `reserved_cycles` | **24,488** | Cycles reserved by the zkVM for STARK setup / teardown. Fixed overhead. |
 | `segments` | **1** | The full proof fits in a single Risc0 segment — no multi-segment commitment needed. |
-| Wall-clock | **6.52 s** | Total prove time on Apple Silicon (M-series, CPU only). |
+| Wall-clock (composite) | **6.52 s** | Default prove time on Apple Silicon (M-series, CPU only). Produces a ~300 KB credential. |
+| Wall-clock (Groth16-wrapped) | **150.71 s** | Same proof, wrapped through the `risc0-groth16-prover` docker sidecar. Produces a **1,479-byte** credential — fits any Logos Delivery payload limit. Reproduce: `attest prove --groth16`. |
+
+### Composite vs Groth16 receipt comparison (measured 2026-05-24)
+
+| Receipt kind | Credential size on disk | Prove wall-clock | Verify wall-clock |
+|---|---|---|---|
+| Composite (default) | **300,863 bytes** | 6.52 s | ~10 ms |
+| Groth16-wrapped | **1,479 bytes** | 150.71 s | ~10 ms |
+| Compression ratio | **≈ 203×** smaller | ≈ 23× slower to prove | unchanged |
+
+The Groth16 wrap is the path to use when the credential needs to traverse a transport with a payload cap (Logos Delivery's default `maxMessageSize` is ≈ 150 KB; the composite receipt exceeds this, the Groth16-wrapped one fits with ~99 % headroom).
 
 ## Per-instruction breakdown (verifier program)
 

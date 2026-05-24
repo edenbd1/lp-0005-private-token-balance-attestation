@@ -23,7 +23,26 @@ The Cargo crate `nostr-auth-gate` is published under MIT OR Apache-2.0 and lives
 
 ## Ecosystem reach
 
-Discord post (`#builder-hub` on the Logos server) and Nostr `#nostr-dev` post drafts live in `docs/community-ports-outreach.md` for the published surface; they announce the four-integration sample set and invite forks. Posting cadence is intentionally aligned with the submission video upload so the integration surface and the working demo land in the community at the same time.
+The reusable building blocks of LP-0005 are published on crates.io for any external builder to depend on:
+
+| Crate | crates.io |
+|---|---|
+| `attestation-core` — shared types (`PublicJournal`, commitment helpers, nullifier) | https://crates.io/crates/attestation-core |
+| `attestation-verifier-program` — portable `check_gate` kernel | https://crates.io/crates/attestation-verifier-program |
+| `attestation-sequencer-client` — async HTTP client for the LEZ JSON-RPC | https://crates.io/crates/attestation-sequencer-client |
+| `attestation-delivery-transport` — credential transport trait + InMemory backend | https://crates.io/crates/attestation-delivery-transport |
+
+The remaining crates (`attestation-methods`, `attestation-verifier-offchain`, `attestation-sdk`) depend on the Risc0 host stack and are best consumed from source — they're documented in this repo and pulled in by any fork that needs proving.
+
+Outreach post (announce the published surface + invite forks):
+
+> **LP-0005: Private Token Balance Attestation — building blocks now on crates.io**
+>
+> Anyone building privacy-gated access on the Logos Execution Zone can now depend directly on the LP-0005 primitive crates. Repo: https://github.com/edenbd1/lp-0005-private-token-balance-attestation
+>
+> The four integrations under `integrations/` (`governance-gate`, `chat-gate`, `premium-features`, `nostr-auth-gate`) demonstrate the pattern for on-chain DAO voting, off-chain Logos Messaging, client-side feature gating, and Nostr NIP-42 relay AUTH. The fourth is intentionally an outside-party-targeted starter — fork it into your relay implementation and wire `attestation-verifier-offchain::verify_credential` into your AUTH path.
+
+Channels: `#builder-hub` on the Logos Discord, `#nostr-dev` for the Nostr-specific port.
 
 ## How the four integrations map to the brief's criteria
 

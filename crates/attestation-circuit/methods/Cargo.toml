@@ -5,6 +5,13 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "Build wrapper that compiles the LP-0005 attestation guest and re-exports its image id."
+# Include the guest source tree so risc0_build can find it after publish.
+include = [
+    "src/**/*",
+    "build.rs",
+    "Cargo.toml",
+    "guest/**/*",
+]
 
 [build-dependencies]
 risc0-build = { workspace = true }

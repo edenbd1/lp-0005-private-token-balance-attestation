@@ -29,6 +29,8 @@ Full deployment record (with reproduction commands) in [`docs/DEPLOYMENT.md`](do
 
 **Basecamp plugin:** [`app/lp-0005-attestation.lgx`](app/lp-0005-attestation.lgx) — 2.1 MB, `lgx verify ✅`, SHA-256 `193a903a0823cdf4f8ef3a333bc28c81e240c1b2faf5b7f8fd93bc1094c89770`. Drop into `~/Library/Application Support/Logos/LogosBasecampDev/plugins/` to load.
 
+**Reusable crates published on crates.io:** [`attestation-core`](https://crates.io/crates/attestation-core), [`attestation-verifier-program`](https://crates.io/crates/attestation-verifier-program), [`attestation-sequencer-client`](https://crates.io/crates/attestation-sequencer-client), [`attestation-delivery-transport`](https://crates.io/crates/attestation-delivery-transport). Add `attestation-core = "0.1"` to your `Cargo.toml` to consume the primitive without forking the repo.
+
 ### Repository artifacts
 
 - Risc0 attestation guest circuit (`crates/attestation-circuit/`) — proves `balance ≥ N` over the LEZ private-account commitment, with Merkle membership, context binding, and nullifier emission.

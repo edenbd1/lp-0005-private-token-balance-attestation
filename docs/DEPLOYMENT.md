@@ -2,12 +2,8 @@
 
 Reproducible record of every successful deployment of the LP-0005 programs.
 Each tx_hash here is independently verifiable on the public Logos Execution
-Zone testnet via the JSON-RPC `getTransaction` method.
-
-> **The explorer links in this document may not render.** The explorer is fed by
-> an indexer that is currently lagging well behind the sequencer, so recent blocks
-> are not indexed yet. The JSON-RPC check below is authoritative and is what the
-> `scripts/demo.sh` verification step uses.
+Zone testnet via the JSON-RPC `getTransaction` method, or by clicking the
+explorer link.
 
 ## Public LEZ testnet (re-validated 2026-07-19)
 

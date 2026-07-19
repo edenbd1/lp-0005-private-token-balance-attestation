@@ -14,11 +14,7 @@ Prove that a shielded token account holds at least `N` tokens — without reveal
 - Block explorer: `https://explorer.testnet.lez.logos.co`
 - Signer (anchorer): [`CbgR6tj5kWx5oziiFptM7jMvrQeYY3Mzaao6ciuhSr2r`](https://explorer.testnet.lez.logos.co/account/CbgR6tj5kWx5oziiFptM7jMvrQeYY3Mzaao6ciuhSr2r)
 
-**Public testnet — both programs deployed AND an end-to-end ECDSA-signed `gated_check` call CONFIRMED ON CHAIN. Every tx independently verifiable via the `getTransaction` JSON-RPC method:**
-
-> The explorer's indexer is currently lagging behind the sequencer, so these transactions may not render
-> in the block explorer yet even though they are on chain. Verify via JSON-RPC (see
-> [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md#verifying-deployments-via-json-rpc)).
+**Public testnet — both programs deployed AND an end-to-end ECDSA-signed `gated_check` call CONFIRMED ON CHAIN. Every tx independently verifiable via `getTransaction` JSON-RPC or by clicking the explorer link:**
 
 | # | Action | Tx hash (click for explorer) |
 |---|---|---|

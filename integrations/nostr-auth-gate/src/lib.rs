@@ -21,9 +21,9 @@
 //! different framing, different transport — so the diff between the four
 //! makes the integration surface obvious to a forking implementer.
 //!
-//! Solicitation status: published to crates.io as `nostr-auth-gate`, link
-//! posted to `#nostr-dev` and the Logos `#builder-hub`. Forks will be tracked
-//! in `docs/community-ports.md` as they land.
+//! Solicitation status: this crate ships in-tree as a starter template and is
+//! not published to crates.io. Forks and outside ports will be tracked in
+//! `docs/community-ports.md` as they land.
 
 #![warn(missing_docs)]
 

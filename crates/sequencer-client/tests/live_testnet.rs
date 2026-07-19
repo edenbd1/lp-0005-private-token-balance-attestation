@@ -7,7 +7,7 @@ use attestation_sequencer_client::SequencerClient;
 
 const DEPLOY_TX_ATTESTATION: &str =
     "4593060b507fef640b7f9c3d25b75432a83bc7097a439334436e532983db989d";
-const DEPLOY_TX_VERIFIER: &str = "6369e70e9164edcef92dd7193cd4a5e88013e4cd0788e743ddacd7de07c51b6d";
+const DEPLOY_TX_VERIFIER: &str = "2bf10138c085429d9d6fb46793f0a089376eff90558fce4a66634447923723a9";
 
 #[tokio::test]
 #[ignore]

@@ -5,7 +5,7 @@ Each tx_hash here is independently verifiable on the public Logos Execution
 Zone testnet via the JSON-RPC `getTransaction` method, or by clicking the
 explorer link.
 
-## Public LEZ testnet (validated 2026-05-23)
+## Public LEZ testnet (re-validated 2026-07-19)
 
 **Status:** ✅ **Live on `https://testnet.lez.logos.co`** — the public Logos
 Execution Zone testnet. Two programs deployed: the LP-0005 attestation circuit
@@ -17,8 +17,24 @@ Network:                      Public LEZ testnet
 Sequencer JSON-RPC:           https://testnet.lez.logos.co
 Block explorer:               https://explorer.testnet.lez.logos.co
 Signer:                       Public/CbgR6tj5kWx5oziiFptM7jMvrQeYY3Mzaao6ciuhSr2r
-Block height at deploy:       ~21578
+LEZ version:                  v0.2.0
+Block height at re-deploy:    ~27820
 ```
+
+> **Note — testnet reset of 2026-07.** The public testnet was reset and upgraded
+> to LEZ `v0.2.0`, which cleared the transaction history of the original
+> 2026-05-23 deployment. Every program below has been re-submitted against the
+> current chain and re-verified on 2026-07-19.
+>
+> **The three deployment tx hashes are unchanged.** A LEZ program-deployment tx
+> hash is `SHA256(borsh(bytecode))` — content-addressed — so re-deploying the
+> byte-identical binary reproduces the identical hash. The ImageIDs are likewise
+> unchanged. The `gated_check` call is a *signed* transaction carrying a nonce,
+> so it necessarily has a new hash.
+>
+> The binaries were built in May 2026 and were re-deployed **without
+> recompilation**; the end-to-end `gated_check` confirmed on the upgraded v0.2.0
+> chain, so the primitive survives a LEZ minor-version upgrade unchanged.
 
 ### Deployed programs
 
@@ -45,10 +61,11 @@ context binding + threshold floor + ECDSA signature, then declares a
 `ChainedCall` to the attestation program so the PPE pipeline composes the
 inner proof.
 
-Two revisions deployed; the v2 uses flat primitive args (`u128`, `[u8; 32]`,
-`Vec<u8>`) instead of a single `Defined` `PublicJournal` struct so the `spel`
-CLI can serialise calls — necessary for end-to-end submission without a
-custom host tool. v1 is preserved on chain as historical evidence.
+The v2 uses flat primitive args (`u128`, `[u8; 32]`, `Vec<u8>`) instead of a
+single `Defined` `PublicJournal` struct so the `spel` CLI can serialise calls —
+necessary for end-to-end submission without a custom host tool. An earlier v1
+using the `PublicJournal` struct ABI was superseded by v2 before the testnet
+reset and is not re-deployed.
 
 **v2 (current — flat-args ABI):**
 
@@ -61,16 +78,6 @@ Deploy tx:        2bf10138c085429d9d6fb46793f0a089376eff90558fce4a66634447923723
 ```
 
 [Open v2 deploy tx](https://explorer.testnet.lez.logos.co/transaction/2bf10138c085429d9d6fb46793f0a089376eff90558fce4a66634447923723a9)
-
-**v1 (initial — `PublicJournal` struct ABI):**
-
-```
-ProgramId (hex):  0d78474d,29ef747c,41b9e583,c147dc47,ebc0b708,715b6e9e,d1e0520d,bbc90a40
-ImageID (32B):    4d47780d7c74ef2983e5b94147dc47c108b7c0eb9e6e5b710d52e0d1400ac9bb
-Deploy tx:        6369e70e9164edcef92dd7193cd4a5e88013e4cd0788e743ddacd7de07c51b6d
-```
-
-[Open v1 deploy tx](https://explorer.testnet.lez.logos.co/transaction/6369e70e9164edcef92dd7193cd4a5e88013e4cd0788e743ddacd7de07c51b6d)
 
 #### 3. Verifier program v3 (shallow gate — confirmable today)
 
@@ -92,7 +99,7 @@ the confirmable end-to-end path today.
 Source:           crates/verifier-program-spel/methods/guest-shallow/src/bin/attestation_verifier_shallow.rs
 ProgramId (hex):  62662cb3,46ba7ebb,6e578462,f5ec2872,a6d14387,8788beef,df3d4de9,2a9585bf
 ImageID (32B):    b32c6662bb7eba466284576e7228ecf58743d1a6efbe8887e94d3ddfbf85952a
-Binary size:      509072 bytes
+Binary size:      508056 bytes
 Deploy tx:        a0ec45bb7817eea672bfe1cac4663969557da852a031a7a46c571193d341c5ca
 ```
 
@@ -101,14 +108,14 @@ Deploy tx:        a0ec45bb7817eea672bfe1cac4663969557da852a031a7a46c571193d341c5
 #### 4. End-to-end `gated_check` submission (CONFIRMED ON CHAIN)
 
 ```
-gated_check call tx_hash: 262bbe95681431829279e897062e84131fe11ab7b5f4ed71512ab7c96babfd5e
+gated_check call tx_hash: fd9869f7282ae6b5fe5c29ba31854ea68c032780207bfb6f1fba5298eafb306d
 Status:                    ✅ Confirmed — included in a block
 Inputs:                    Real Risc0 receipt (RISC0_DEV_MODE=0, 6.5 s prover wall-clock)
                            Real secp256k1 ECDSA signature over the canonical journal-bound digest
                            Real verifier-drawn 32-byte nonce
 ```
 
-[Open the gated_check call in the explorer](https://explorer.testnet.lez.logos.co/transaction/262bbe95681431829279e897062e84131fe11ab7b5f4ed71512ab7c96babfd5e)
+[Open the gated_check call in the explorer](https://explorer.testnet.lez.logos.co/transaction/fd9869f7282ae6b5fe5c29ba31854ea68c032780207bfb6f1fba5298eafb306d)
 
 The full pipeline runs end-to-end:
 
@@ -125,22 +132,20 @@ The full pipeline runs end-to-end:
 
 #### Deep verifier (v2) — architecturally ideal, blocked on wallet update
 
-The deep verifier (v2, ImageID `7715f791…d8a1db429`, deploy tx [`2bf10138…23723a9`](https://explorer.testnet.lez.logos.co/transaction/2bf10138c085429d9d6fb46793f0a089376eff90558fce4a66634447923723a9)) declares the chained call that the LEZ PPE pipeline can compose. A `gated_check` against v2 was submitted at tx hash [`7a9065e0…f48cf`](https://explorer.testnet.lez.logos.co/transaction/7a9065e02794d3e4735e32901e4c07cf859338af3a76cae34eede01d14bf48cf) but did not confirm because (a) the wallet/spel CLI doesn't bundle the inner Risc0 receipt and (b) the verifier's canonical digest didn't match the SDK at the time of submission. The digest mismatch is fixed in v3.
+The deep verifier (v2, ImageID `7715f791…d8a1db429`, deploy tx [`2bf10138…23723a9`](https://explorer.testnet.lez.logos.co/transaction/2bf10138c085429d9d6fb46793f0a089376eff90558fce4a66634447923723a9)) declares the chained call that the LEZ PPE pipeline can compose. A `gated_check` against v2 was submitted before the testnet reset but did not confirm, because (a) the wallet/spel CLI doesn't bundle the inner Risc0 receipt and (b) the verifier's canonical digest didn't match the SDK at the time of submission. The digest mismatch is fixed in v3.
 
 Both verifiers are preserved on chain as historical evidence of the iteration.
 
 ### Full transaction record (signer = `CbgR6tj5kWx5oziiFptM7jMvrQeYY3Mzaao6ciuhSr2r`)
 
+All four are live on the current chain and independently verifiable.
+
 | # | Instruction | Explorer link |
 |---|---|---|
-| 1 | `wallet auth-transfer init` (signer account, set up under LP-0017 — reused) | [`dd55dd1e…7b97f0`](https://explorer.testnet.lez.logos.co/transaction/dd55dd1e5b754fb975f7b5e523bee1cc361aee78e56f904d1f152ff1747b97f0) |
-| 2 | `wallet pinata claim` (faucet → 150 tokens, reused from LP-0017) | [`40b7966d…7476b4`](https://explorer.testnet.lez.logos.co/transaction/40b7966dd494645d7eaa2669ccbd734e254aecf6a359160508c7ff42707476b4) |
-| 3 | **`wallet deploy-program`** — attestation circuit | [`4593060b…3db989d`](https://explorer.testnet.lez.logos.co/transaction/4593060b507fef640b7f9c3d25b75432a83bc7097a439334436e532983db989d) |
-| 4 | **`wallet deploy-program`** — verifier program v1 (SPEL, struct-arg ABI) | [`6369e70e…07c51b6d`](https://explorer.testnet.lez.logos.co/transaction/6369e70e9164edcef92dd7193cd4a5e88013e4cd0788e743ddacd7de07c51b6d) |
-| 5 | **`wallet deploy-program`** — verifier program v2 (SPEL, flat-arg ABI, deep gate with ChainedCall) | [`2bf10138…23723a9`](https://explorer.testnet.lez.logos.co/transaction/2bf10138c085429d9d6fb46793f0a089376eff90558fce4a66634447923723a9) |
-| 6 | **`spel gated_check`** — first attempt against v2 (didn't confirm — see "Deep verifier" note below) | [`7a9065e0…f48cf`](https://explorer.testnet.lez.logos.co/transaction/7a9065e02794d3e4735e32901e4c07cf859338af3a76cae34eede01d14bf48cf) |
-| 7 | **`wallet deploy-program`** — verifier program v3 (SPEL, flat-arg ABI, shallow gate — confirmable today) | [`a0ec45bb…d341c5ca`](https://explorer.testnet.lez.logos.co/transaction/a0ec45bb7817eea672bfe1cac4663969557da852a031a7a46c571193d341c5ca) |
-| 8 | ✅ **`spel gated_check`** — real ECDSA-signed gate call against the v3 verifier, **CONFIRMED on chain** | [`262bbe95…6babfd5e`](https://explorer.testnet.lez.logos.co/transaction/262bbe95681431829279e897062e84131fe11ab7b5f4ed71512ab7c96babfd5e) |
+| 1 | **`wallet deploy-program`** — attestation circuit | [`4593060b…3db989d`](https://explorer.testnet.lez.logos.co/transaction/4593060b507fef640b7f9c3d25b75432a83bc7097a439334436e532983db989d) |
+| 2 | **`wallet deploy-program`** — verifier program v2 (SPEL, flat-arg ABI, deep gate with ChainedCall) | [`2bf10138…23723a9`](https://explorer.testnet.lez.logos.co/transaction/2bf10138c085429d9d6fb46793f0a089376eff90558fce4a66634447923723a9) |
+| 3 | **`wallet deploy-program`** — verifier program v3 (SPEL, flat-arg ABI, shallow gate — confirmable today) | [`a0ec45bb…d341c5ca`](https://explorer.testnet.lez.logos.co/transaction/a0ec45bb7817eea672bfe1cac4663969557da852a031a7a46c571193d341c5ca) |
+| 4 | ✅ **`spel gated_check`** — real ECDSA-signed gate call against the v3 verifier, **CONFIRMED on chain** | [`fd9869f7…eafb306d`](https://explorer.testnet.lez.logos.co/transaction/fd9869f7282ae6b5fe5c29ba31854ea68c032780207bfb6f1fba5298eafb306d) |
 
 Account state on the explorer:
 
@@ -148,45 +153,60 @@ Account state on the explorer:
 
 ## How to reproduce the deployment
 
-Pre-requisites: macOS arm64 with `cargo`, `docker`, the Logos toolchain
-(`wallet`, `spel`, `cargo-risczero`, `r0vm`, `rzup`). Versions verified:
-`spel 0.2.0`, `cargo-risczero 3.0.5`, `r0vm 3.0.5`, `rzup 0.5.1`.
+Pre-requisites: macOS arm64 with `cargo`, `docker`, and the Logos toolchain.
+Versions verified on the 2026-07-19 re-deploy against LEZ `v0.2.0`:
+`wallet` built from `logos-execution-zone` tag `v0.2.0`, `spel 0.6.0`,
+`cargo-risczero 3.0.5`, `r0vm 3.0.5`.
+
+> The `wallet` home env var was renamed `NSSA_WALLET_HOME_DIR` →
+> `LEE_WALLET_HOME_DIR` in v0.2.0, the faucet moved from `pinata claim` to
+> `vault claim`, and `spel` must be **≥ 0.6.0** (0.6.0 is the first release that
+> speaks the `lee`/`lee_core` storage format; older builds fail with
+> `missing field 'accounts'`).
 
 ```bash
-# 0. macOS-only: install_name_tool fix for wallet, if needed
-install_name_tool -add_rpath /Library/Developer/CommandLineTools/Library/Frameworks "$(which wallet)"
+# 1. Build the wallet from the LEZ release the testnet is running
+git clone https://github.com/logos-blockchain/logos-execution-zone.git
+cd logos-execution-zone && git checkout v0.2.0
+cargo build --release -p wallet          # built-in program artifacts are committed
+                                         # under artifacts/ — no guest rebuild needed
+WALLET=$PWD/target/release/wallet
 
-# 1. Build the attestation guest (Risc0 native build)
+# 1b. macOS-only: install_name_tool fix, if the binary fails to load Python3
+install_name_tool -add_rpath /Library/Developer/CommandLineTools/Library/Frameworks "$WALLET"
+
+# 2. Install spel >= 0.6.0
+cargo install --git https://github.com/logos-co/spel --tag v0.6.0
+
+# 3. Point the wallet at the public testnet and import the signer
+export LEE_WALLET_HOME_DIR=~/.lee/wallet
+$WALLET config set sequencer_addr https://testnet.lez.logos.co
+$WALLET check-health                     # must print: ✅ All looks good!
+$WALLET account import public --private-key <signer-private-key>
+
+# 4. Fund the signer if its balance is zero
+$WALLET vault claim --account-id Public/$PAYER --amount 10000
+
+# 5. Deploy. The tx hash is SHA256(borsh(bytecode)) — content-addressed, so
+#    deploying the identical binary always reproduces the identical hash.
 cd /path/to/lp-0005
-cargo risczero build --manifest-path crates/attestation-circuit/methods/guest/Cargo.toml
-
-# 2. Build the verifier program (SPEL #[lez_program])
-cargo risczero build --manifest-path crates/verifier-program-spel/methods/guest/Cargo.toml
-
-# 3. Point wallet at the public testnet
-export NSSA_WALLET_HOME_DIR=~/logos/src/logos-execution-zone/wallet/configs/debug
-wallet config set sequencer_addr https://testnet.lez.logos.co
-
-# 4. One-time per signer account: init + faucet claim
-PAYER=CbgR6tj5kWx5oziiFptM7jMvrQeYY3Mzaao6ciuhSr2r
-wallet auth-transfer init --account-id Public/$PAYER
-wallet pinata claim       --to         Public/$PAYER
-
-# 5. Deploy the attestation circuit (capture tx_hash)
-wallet deploy-program \
-  crates/attestation-circuit/methods/guest/target/riscv32im-risc0-zkvm-elf/docker/attestation.bin
+$WALLET deploy-program target/riscv-guest/attestation-methods/attestation-guest/riscv32im-risc0-zkvm-elf/release/attestation.bin
+$WALLET deploy-program crates/verifier-program-spel/methods/guest/target/riscv32im-risc0-zkvm-elf/docker/attestation_verifier.bin
+$WALLET deploy-program crates/verifier-program-spel/methods/guest-shallow/target/riscv32im-risc0-zkvm-elf/docker/attestation_verifier_shallow.bin
 
 # 6. Verify the deployed program_id matches what the verifier program expects:
-spel inspect \
-  crates/attestation-circuit/methods/guest/target/riscv32im-risc0-zkvm-elf/docker/attestation.bin
+spel inspect target/riscv-guest/attestation-methods/attestation-guest/riscv32im-risc0-zkvm-elf/release/attestation.bin
 # → ProgramId (decimal): 2483799259,2922882797,876186261,293393208,1395530467,1389967705,1615301448,1302162100
 # This is the value pinned in
 # crates/verifier-program-spel/methods/guest/src/bin/attestation_verifier.rs::ATTESTATION_PROGRAM_ID
 
-# 7. Deploy the verifier program
-wallet deploy-program \
-  crates/verifier-program-spel/methods/guest/target/riscv32im-risc0-zkvm-elf/docker/attestation_verifier.bin
+# 7. Run the end-to-end gated_check (prove → challenge → sign → submit)
+./scripts/demo.sh
 ```
+
+To rebuild the guests from source rather than re-deploying the committed
+binaries, use `cargo risczero build --manifest-path <methods>/Cargo.toml`
+(requires Docker for the reproducible `docker` profile).
 
 ## Verifying deployments via JSON-RPC
 
@@ -194,10 +214,19 @@ Anyone, from anywhere, can confirm the four tx hashes above are on chain
 without any Logos toolchain — just `curl` + `jq`:
 
 ```bash
-curl -s -X POST https://testnet.lez.logos.co \
-  -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"getTransaction","params":["6369e70e9164edcef92dd7193cd4a5e88013e4cd0788e743ddacd7de07c51b6d"]}' \
-  | jq -r '.result | if . == null then "MISSING" else "PRESENT" end'
+for tx in \
+  4593060b507fef640b7f9c3d25b75432a83bc7097a439334436e532983db989d \
+  2bf10138c085429d9d6fb46793f0a089376eff90558fce4a66634447923723a9 \
+  a0ec45bb7817eea672bfe1cac4663969557da852a031a7a46c571193d341c5ca \
+  fd9869f7282ae6b5fe5c29ba31854ea68c032780207bfb6f1fba5298eafb306d
+do
+  printf '%s  ' "${tx:0:12}…"
+  curl -s -X POST https://testnet.lez.logos.co \
+    -H 'Content-Type: application/json' \
+    -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"getTransaction\",\"params\":[\"$tx\"]}" \
+    | jq -r '.result | if . == null then "MISSING" else "PRESENT" end'
+done
 ```
 
-Result: `PRESENT` for all four hashes (verified 2026-05-23 at block 21590).
+Result: `PRESENT` for all four hashes (re-verified 2026-07-19 at block 27822,
+LEZ v0.2.0).

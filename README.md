@@ -21,7 +21,7 @@ Prove that a shielded token account holds at least `N` tokens — without reveal
 | 1 | **`wallet deploy-program`** — attestation circuit (`balance ≥ N` Risc0 guest, ImageID `dbc40b94…6a9d4d`) | [`4593060b…3db989d`](https://explorer.testnet.lez.logos.co/transaction/4593060b507fef640b7f9c3d25b75432a83bc7097a439334436e532983db989d) |
 | 2 | **`wallet deploy-program`** — verifier program v2 (SPEL, flat-arg ABI, deep gate, ImageID `7715f791…d8a1db429`) | [`2bf10138…23723a9`](https://explorer.testnet.lez.logos.co/transaction/2bf10138c085429d9d6fb46793f0a089376eff90558fce4a66634447923723a9) |
 | 3 | **`wallet deploy-program`** — verifier program v3 (SPEL, flat-arg ABI, shallow gate, ImageID `b32c6662…df85952a`) | [`a0ec45bb…d341c5ca`](https://explorer.testnet.lez.logos.co/transaction/a0ec45bb7817eea672bfe1cac4663969557da852a031a7a46c571193d341c5ca) |
-| 4 | ✅ **`spel gated_check` CONFIRMED** — real Risc0 receipt + ECDSA-signed challenge → v3 verifier accepts | [`262bbe95…6babfd5e`](https://explorer.testnet.lez.logos.co/transaction/262bbe95681431829279e897062e84131fe11ab7b5f4ed71512ab7c96babfd5e) |
+| 4 | ✅ **`spel gated_check` CONFIRMED** — real Risc0 receipt + ECDSA-signed challenge → v3 verifier accepts | [`fd9869f7…eafb306d`](https://explorer.testnet.lez.logos.co/transaction/fd9869f7282ae6b5fe5c29ba31854ea68c032780207bfb6f1fba5298eafb306d) |
 
 Full deployment record (with reproduction commands) in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 

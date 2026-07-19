@@ -54,7 +54,7 @@ The verifier program's cycle cost is dominated by the ECDSA verification. The ch
 | Attestation circuit deploy ([`4593060b…3db989d`](https://explorer.testnet.lez.logos.co/transaction/4593060b507fef640b7f9c3d25b75432a83bc7097a439334436e532983db989d)) | ~15 s (1 block) | 376,580 chars |
 | Verifier program v2 deploy ([`2bf10138…23723a9`](https://explorer.testnet.lez.logos.co/transaction/2bf10138c085429d9d6fb46793f0a089376eff90558fce4a66634447923723a9)) | ~15 s (1 block) | 682,360 chars |
 | Verifier program v3 deploy ([`a0ec45bb…d341c5ca`](https://explorer.testnet.lez.logos.co/transaction/a0ec45bb7817eea672bfe1cac4663969557da852a031a7a46c571193d341c5ca)) | ~15 s (1 block) | ~680,000 chars |
-| Confirmed `gated_check` call ([`262bbe95…6babfd5e`](https://explorer.testnet.lez.logos.co/transaction/262bbe95681431829279e897062e84131fe11ab7b5f4ed71512ab7c96babfd5e)) | ~15 s (1 block) | 1,720 chars |
+| Confirmed `gated_check` call ([`fd9869f7…eafb306d`](https://explorer.testnet.lez.logos.co/transaction/fd9869f7282ae6b5fe5c29ba31854ea68c032780207bfb6f1fba5298eafb306d)) | ~15 s (1 block) | 1,720 chars |
 
 ## How to reproduce
 

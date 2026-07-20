@@ -7,6 +7,7 @@ repository.workspace = true
 description = "Async HTTP client for the LEZ sequencer JSON-RPC API used by LP-0005 (getProofForCommitment, getAccount, getTransaction, getLastBlockId, sendTransaction)."
 
 [dependencies]
+sha2 = { workspace = true }
 attestation-core = { path = "../attestation-core", version = "0.1.0", default-features = false, features = ["std"]  }
 serde = { workspace = true, features = ["std"] }
 serde_json = "1"

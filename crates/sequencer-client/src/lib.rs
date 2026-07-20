@@ -180,13 +180,57 @@ impl SequencerClient {
     /// `getProofForCommitment(commitment: hex) -> Option<MembershipProof>`.
     /// Returns the membership proof anchoring the given commitment under the
     /// sequencer's current Merkle root, or `None` if the commitment is unknown.
+    /// The current commitment-set root, derived from a commitment known to be on chain.
+    ///
+    /// LEZ exposes no dedicated "current root" RPC. The root is the digest of the
+    /// commitment set, and folding any valid membership proof yields it, which is
+    /// exactly what `lee_core::compute_digest_for_path` does
+    /// (`lee/state_machine/core/src/commitment.rs:89`). So: fetch a proof for a
+    /// commitment you know is included, fold it, and you have the root the
+    /// sequencer currently holds.
+    ///
+    /// **Why you need this.** An attestation's `merkle_root` is chosen by the
+    /// prover. Nothing in the circuit, and nothing in the sequencer, ties it to
+    /// real chain state: a prover can invent a one-leaf tree containing an account
+    /// with any balance. Until a verifier compares `journal.merkle_root` against a
+    /// root it fetched itself, the proof establishes possession of a key over a
+    /// self-declared account, not a balance. See `docs/limitations.md`.
+    ///
+    /// Returns `None` if the commitment is not in the set, in which case you
+    /// cannot derive the root from it.
+    pub async fn commitment_set_root(
+        &self,
+        known_commitment: &[u8; 32],
+    ) -> Result<Option<[u8; 32]>, ClientError> {
+        let Some(proof) = self.get_proof_for_commitment(known_commitment).await? else {
+            return Ok(None);
+        };
+        Ok(Some(fold_membership_proof(known_commitment, &proof)))
+    }
+
+    /// Whether `merkle_root` is the root the sequencer currently holds.
+    ///
+    /// The honest check a gate should run before honouring an attestation.
+    /// `known_commitment` is any commitment the caller knows is on chain; its own
+    /// account's commitment is the natural choice.
+    pub async fn is_root_current(
+        &self,
+        merkle_root: &[u8; 32],
+        known_commitment: &[u8; 32],
+    ) -> Result<bool, ClientError> {
+        Ok(self.commitment_set_root(known_commitment).await? == Some(*merkle_root))
+    }
+
     pub async fn get_proof_for_commitment(
         &self,
         commitment: &[u8; 32],
     ) -> Result<Option<MembershipProof>, ClientError> {
-        let hex_str = hex::encode(commitment);
+        // The sequencer expects the commitment as a JSON array of bytes, not a hex
+        // string: `Commitment` deserialises from `[u8; 32]`. Sending hex returns
+        // `-32602 Invalid params`, which is what this method did until 2026-07-20.
+        let bytes: Vec<u8> = commitment.to_vec();
         let v: Option<serde_json::Value> = self
-            .call("getProofForCommitment", serde_json::json!([hex_str]))
+            .call("getProofForCommitment", serde_json::json!([bytes]))
             .await?;
         match v {
             None => Ok(None),
@@ -280,25 +324,41 @@ fn decode_proof_tuple(v: &serde_json::Value) -> Result<MembershipProof, ClientEr
     })
 }
 
+/// Decode a list of 32-byte hashes.
+///
+/// The sequencer returns each sibling as a JSON array of byte values, which is
+/// how `[u8; 32]` serialises. Hex strings are also accepted, both because an
+/// earlier revision of this client assumed that shape and because it is the more
+/// natural thing for a hand-written client to send.
 fn decode_hash_array(values: &[serde_json::Value]) -> Result<Vec<[u8; 32]>, ClientError> {
     let mut out = Vec::with_capacity(values.len());
     for (i, v) in values.iter().enumerate() {
-        let hex_str = v.as_str().ok_or_else(|| ClientError::Rpc {
-            code: -1,
-            message: format!("sibling[{i}] is not a string"),
-        })?;
-        let bytes = hex::decode(hex_str).map_err(|e| ClientError::Rpc {
-            code: -1,
-            message: format!("sibling[{i}] hex decode: {e}"),
-        })?;
-        if bytes.len() != 32 {
+        let bytes: Vec<u8> = if let Some(arr) = v.as_array() {
+            arr.iter()
+                .map(|b| {
+                    b.as_u64()
+                        .and_then(|n| u8::try_from(n).ok())
+                        .ok_or_else(|| ClientError::Rpc {
+                            code: -1,
+                            message: format!("sibling[{i}] contains a non-byte value"),
+                        })
+                })
+                .collect::<Result<_, _>>()?
+        } else if let Some(hex_str) = v.as_str() {
+            hex::decode(hex_str).map_err(|e| ClientError::Rpc {
+                code: -1,
+                message: format!("sibling[{i}] hex decode: {e}"),
+            })?
+        } else {
             return Err(ClientError::Rpc {
                 code: -1,
-                message: format!("sibling[{i}] length {} != 32", bytes.len()),
+                message: format!("sibling[{i}] is neither a byte array nor a hex string"),
             });
-        }
-        let mut arr = [0u8; 32];
-        arr.copy_from_slice(&bytes);
+        };
+        let arr: [u8; 32] = bytes.as_slice().try_into().map_err(|_| ClientError::Rpc {
+            code: -1,
+            message: format!("sibling[{i}] length {} != 32", bytes.len()),
+        })?;
         out.push(arr);
     }
     Ok(out)
@@ -405,4 +465,27 @@ mod tests {
         assert_eq!(proof.siblings.len(), 1);
         assert_eq!(proof.siblings[0], [0u8; 32]);
     }
+}
+
+/// Fold a membership proof to the root it attests, matching LEZ's own
+/// `compute_digest_for_path`: the leaf is hashed once before folding, and a
+/// sibling goes on the right when the index bit is 0.
+#[must_use]
+pub fn fold_membership_proof(commitment: &[u8; 32], proof: &MembershipProof) -> [u8; 32] {
+    use sha2::{Digest, Sha256};
+    let mut node: [u8; 32] = Sha256::digest(commitment).into();
+    let mut idx = proof.leaf_index;
+    for sib in &proof.siblings {
+        let mut h = Sha256::new();
+        if idx & 1 == 0 {
+            h.update(node);
+            h.update(sib);
+        } else {
+            h.update(sib);
+            h.update(node);
+        }
+        node = h.finalize().into();
+        idx >>= 1;
+    }
+    node
 }

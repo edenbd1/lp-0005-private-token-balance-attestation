@@ -36,10 +36,26 @@ for you today:
 - **Off-chain.** No enforcement either. The recipient must know which roots are
   current and reject anything outside its freshness window.
 
-**What integrators must do.** Fetch the current root from the sequencer and
-compare it against `journal.merkle_root` before honouring an attestation. Until
-that check is in place, the primitive proves possession of a private key over a
-self-declared account, not a balance.
+**What integrators must do, and the API for it.** Fetch the current root from the
+sequencer and compare it against `journal.merkle_root` before honouring an
+attestation. `attestation-sequencer-client` now does this for you:
+
+```rust
+let client = SequencerClient::public_testnet();
+// `known_commitment` is any commitment you know is on chain, e.g. your own.
+if !client.is_root_current(&journal.merkle_root, &known_commitment).await? {
+    return Err("attestation is anchored to a root this chain does not hold");
+}
+```
+
+LEZ exposes no dedicated "current root" RPC, so `commitment_set_root` derives it
+by fetching a membership proof and folding it, which is what
+`lee_core::compute_digest_for_path` does. `crates/sequencer-client/tests/root_freshness.rs`
+exercises both directions against the live public testnet: it derives the real
+root, and it rejects a one-leaf tree of the exact shape an attacker would use.
+
+Until that check is in place, the primitive proves possession of a private key
+over a self-declared account, not a balance.
 
 **Why it is not fixed in-program.** A LEZ program guest receives four inputs
 (`lee/state_machine/src/program.rs:89-110`) and has no syscall to read the

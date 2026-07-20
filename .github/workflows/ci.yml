@@ -114,7 +114,11 @@ jobs:
         run: |
           cargo install --locked --git https://github.com/logos-co/spel --tag "$SPEL_TAG" spel \
             || cargo install --git https://github.com/logos-co/spel --tag "$SPEL_TAG" spel
-          spel --help >/dev/null 2>&1 || { echo "spel did not install"; exit 1; }
+          # `spel --help` exits 1 by design, so it cannot be used as a health
+          # check. Assert the binary is on PATH instead.
+          command -v spel >/dev/null || { echo "spel is not on PATH after install"; exit 1; }
+          spel program-id artifacts/programs/attestation_lez.bin >/dev/null \
+            || { echo "spel installed but cannot read a program binary"; exit 1; }
 
       - name: Cache this project's build
         uses: actions/cache@v4

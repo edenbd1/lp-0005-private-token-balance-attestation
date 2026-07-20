@@ -17,5 +17,5 @@ thiserror = "1"
 [dev-dependencies]
 attestation-sdk = { path = "../../crates/sdk", version = "0.1.0"  }
 attestation-verifier-program = { path = "../../crates/verifier-program", version = "0.1.0"  }
-k256 = { version = "0.13", features = ["ecdsa"] }
+k256 = { version = "0.14", features = ["ecdsa"] }
 rand = "0.8"

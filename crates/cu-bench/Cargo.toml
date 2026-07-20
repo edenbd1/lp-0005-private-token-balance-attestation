@@ -26,7 +26,7 @@ attestation-core = { path = "../attestation-core" }
 sha2 = "0.10"
 # The deep-gate rejection tests sign a real presenter challenge, so they need the
 # same curve the guest verifies with.
-k256 = { version = "0.13", features = ["ecdsa"] }
+k256 = { version = "0.14", features = ["ecdsa"] }
 
 [[bin]]
 name = "cu-bench"

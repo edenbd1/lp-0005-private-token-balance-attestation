@@ -47,11 +47,11 @@ RPC="${SEQUENCER_URL:-https://testnet.lez.logos.co}"
 
 ATTESTATION_BIN=artifacts/programs/attestation_lez.bin
 VERIFIER_BIN=artifacts/programs/attestation_verifier_deep.bin
-GATED_CHECK_TX=a77fe12b7027247651580fab5b3de5203ce564f8ac1fa46d8d0c9c865f4ff731
+GATED_CHECK_TX=b9488de014c7bda54544011b3cf1e7f54562e90c5451dc402316507bd10d36b2
 
 # The attestation nullifier of that transaction. It is the PDA seed, recorded
 # here so the derivation in step 4 is reproducible by a third party.
-NULLIFIER=92f49442a183d5d08aea697402f14cb7ddd12814b68608161a3ddeeea14b6cc9
+NULLIFIER=165f232071c598027bb5270c607763a5a880c86f52429a3f0d50a53bbdf820d1
 
 FAILED=0
 ok()  { printf '  \033[32mOK\033[0m   %s\n' "$1"; }
@@ -145,7 +145,7 @@ echo "[4/5] derive the marker PDA from the verifier ImageID and the nullifier"
 VERIFIER_ID=$(image_id "$VERIFIER_BIN")
 if [ -z "$VERIFIER_ID" ]; then
   echo "  (spel not on PATH; falling back to the recorded ImageID)"
-  VERIFIER_ID=adc354975213ee20d98c43def000bdb5db6642115b9ec0695bb71c064143d40e
+  VERIFIER_ID=6d4c9453f43010552bce6c0663a3d2a940397c05ccaf3dca8b3b04231797babc
 fi
 MARKER_PDA=$(python3 -c "
 import hashlib,sys

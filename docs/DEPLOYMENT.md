@@ -185,15 +185,15 @@ Deploy tx:        674aa03a8a51a2eba660ec2ab136a1b6c9ca17817c7bb3160b689043757266
 
 Verifier program (deep gate)
 Source:           crates/verifier-program-spel/methods/guest-deep/src/bin/attestation_verifier_deep.rs
-ImageID (32B):    adc354975213ee20d98c43def000bdb5db6642115b9ec0695bb71c064143d40e
-Binary:           artifacts/programs/attestation_verifier_deep.bin (506,812 bytes)
-Deploy tx:        c5ea829ffa2636b9a76a4eed90b80c45a20d4bb6260c1f913f4ec042e563d61f
+ImageID (32B):    6d4c9453f43010552bce6c0663a3d2a940397c05ccaf3dca8b3b04231797babc
+Binary:           artifacts/programs/attestation_verifier_deep.bin
+Deploy tx:        4e2ac5c3f07cb719bc80084837a5c86de61e0efa3c44975e88605c23e59271a9
 
 Confirmed gated_check (privacy-preserving)
-Tx hash:          a77fe12b7027247651580fab5b3de5203ce564f8ac1fa46d8d0c9c865f4ff731
+Tx hash:          b9488de014c7bda54544011b3cf1e7f54562e90c5451dc402316507bd10d36b2
 Transaction type: PrivacyPreserving (borsh variant byte 1)
 On-chain size:    230,186 bytes — a real receipt, not a bare instruction
-Marker PDA:       Px6D6EPbG5iJkKzbBPwJeqXGx1xZ8hLRNQEHirUDLiR
+Marker PDA:       7R4Kq6gKREoefWDq9LdqueDpVGWeUPv1Ce15xGms6SHH
                   owned by attestation_verifier_deep
 ```
 
@@ -203,6 +203,18 @@ this repository:
 ```bash
 ./scripts/verify-onchain-proof.sh
 ```
+
+**The balance is anchored, not asserted.** `gated_check` reads the threshold check
+against `presenter.account.balance`, taken from the pre_state rather than the
+caller-supplied witness. On the privacy path LEZ computes that account's
+commitment from its exact state and folds the caller's membership proof into a
+`CommitmentSetDigest` (`privacy_preserving_circuit/src/output.rs:307-315`) that
+the sequencer requires to be in `root_history` (`state.rs:302-306`). A fabricated
+membership proof yields a digest that is not a historical root and the
+transaction is rejected. Verified both ways on a live chain: a witness claiming
+1,000,000 against an account holding 3,000 fails with `Program error 3009: the
+presenter account's on-chain balance is below the gate's minimum`, while a
+legitimate witness confirms.
 
 **The on-chain trace.** A privacy transaction publishes no program id, so the
 instruction claims a PDA seeded by the attestation nullifier. Anyone can
@@ -276,8 +288,8 @@ deep path, where the zero-knowledge proof is genuinely verified on chain; run
 | 3 | **`wallet deploy-program`** — verifier program v3 (SPEL, flat-arg ABI, shallow gate — confirmable today) | [`a0ec45bb…d341c5ca`](https://explorer.testnet.lez.logos.co/transaction/a0ec45bb7817eea672bfe1cac4663969557da852a031a7a46c571193d341c5ca) |
 | 4 | **`spel gated_check`** — ECDSA-signed gate call against the v3 shallow verifier (no proof verification) | [`fd9869f7…eafb306d`](https://explorer.testnet.lez.logos.co/transaction/fd9869f7282ae6b5fe5c29ba31854ea68c032780207bfb6f1fba5298eafb306d) |
 | 5 | **`wallet deploy-program`** — LEZ-native attestation program (v4 path) | `674aa03a8a51a2eba660ec2ab136a1b6c9ca17817c7bb3160b68904375726652` |
-| 6 | **`wallet deploy-program`** — deep verifier (v4 path) | `c5ea829ffa2636b9a76a4eed90b80c45a20d4bb6260c1f913f4ec042e563d61f` |
-| 7 | ✅ **`spel gated_check`** — privacy-preserving, **proof VERIFIED ON CHAIN** | `a77fe12b7027247651580fab5b3de5203ce564f8ac1fa46d8d0c9c865f4ff731` |
+| 6 | **`wallet deploy-program`** — deep verifier (v4 path) | `4e2ac5c3f07cb719bc80084837a5c86de61e0efa3c44975e88605c23e59271a9` |
+| 7 | ✅ **`spel gated_check`** — privacy-preserving, **proof VERIFIED ON CHAIN** | `b9488de014c7bda54544011b3cf1e7f54562e90c5451dc402316507bd10d36b2` |
 
 Account state on the explorer:
 

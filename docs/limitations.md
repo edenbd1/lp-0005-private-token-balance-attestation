@@ -4,65 +4,53 @@
 
 A proof is bound to a presenter pubkey via a challenge-response signature. This stops *passive* forwarding (Bob can't present Alice's proof without Alice's secret key). It does **not** stop voluntary collusion (Alice can sign on Bob's behalf, or share her secret key). Voluntary delegation is out of scope.
 
-## The Merkle root is prover-chosen, on both paths
+## The Merkle root in the witness is prover-chosen, and why that no longer matters on chain
 
-**This is the most important limitation in this document, and an earlier revision
-of it stated the opposite. Correcting the record.**
+**This section has been wrong twice. First it claimed the sequencer enforced root
+freshness for the gate, which it does not. Then it said the gap was open. Both
+are superseded by the anchored-balance check described below.**
 
-`merkle_root` is a caller-supplied argument on every path. The circuit checks
-only that the caller's own `merkle_path` folds to the caller's own
-`merkle_root` (`attestation-core/src/lib.rs:222-226`). Nothing compares that root
-to LEZ's commitment set. A prover can therefore invent a one-leaf tree
-containing an account with any balance they like, and the attestation will prove
-successfully.
+The witness's `merkle_root` *is* caller-supplied. The circuit only checks that the
+caller's own `merkle_path` folds to the caller's own `merkle_root`
+(`attestation-core/src/lib.rs:222-226`), so a prover can invent a one-leaf tree
+holding any balance. On its own, that proves possession of a key over a
+self-declared account.
 
-What the proof establishes, stated precisely:
+**The on-chain gate no longer relies on it.** `gated_check` reads the balance from
+the presenter's `pre_state`, not from the witness
+(`attestation_verifier_deep.rs`, error `3009`). On the privacy-preserving path
+that value is anchored by LEZ itself:
 
-> there exists a tree with root `R` — chosen by the prover — containing a leaf
-> whose commitment is well-formed under the LEZ format and whose balance is at
-> least `N`, and the prover holds the secp256k1 key bound into the journal.
+1. The private account appears as an authorized `pre_state`.
+2. The privacy circuit computes its commitment from that exact state and folds the
+   caller's membership proof into a `CommitmentSetDigest`
+   (`privacy_preserving_circuit/src/output.rs:307-315`).
+3. The sequencer requires that digest to be in `root_history`
+   (`lee/state_machine/src/state.rs:302-306`).
 
-Anchoring `R` to real chain state is the verifier's job, and neither path does it
-for you today:
+A fabricated membership proof yields a digest that is not a historical root, and
+the transaction is rejected. Verified both ways on a live chain: a witness
+claiming 1,000,000 against an account really holding 3,000 fails with
+`Program error 3009: the presenter account's on-chain balance is below the gate's
+minimum`, while a legitimate witness confirms. Re-using a stale account state
+fails too, because its commitment has been nullified.
 
-- **On-chain.** A previous version of this file claimed the sequencer enforces
-  `merkle_root ∈ root_history` at inclusion time. It does not. LEZ does check
-  `root_history.contains(digest)` (`lee/state_machine/src/state.rs:302-306`), but
-  for the `CommitmentSetDigest` bound to a *private-account spend* in
-  `message.new_nullifiers` — a different value, structurally unrelated to the
-  `merkle_root` argument of `gated_check`. A prover can present a genuine digest
-  for an account they really own while feeding a fabricated root to the gate in
-  the very same transaction. The two are not tied together.
-- **Off-chain.** No enforcement either. The recipient must know which roots are
-  current and reject anything outside its freshness window.
-
-**What integrators must do, and the API for it.** Fetch the current root from the
-sequencer and compare it against `journal.merkle_root` before honouring an
-attestation. `attestation-sequencer-client` now does this for you:
+**Off-chain the gap remains, and is the verifier's to close.** A recipient
+verifying a credential locally has no sequencer enforcing anything, so it must
+compare the root itself. The API is there:
 
 ```rust
 let client = SequencerClient::public_testnet();
-// `known_commitment` is any commitment you know is on chain, e.g. your own.
 if !client.is_root_current(&journal.merkle_root, &known_commitment).await? {
     return Err("attestation is anchored to a root this chain does not hold");
 }
 ```
 
-LEZ exposes no dedicated "current root" RPC, so `commitment_set_root` derives it
-by fetching a membership proof and folding it, which is what
-`lee_core::compute_digest_for_path` does. `crates/sequencer-client/tests/root_freshness.rs`
-exercises both directions against the live public testnet: it derives the real
-root, and it rejects a one-leaf tree of the exact shape an attacker would use.
-
-Until that check is in place, the primitive proves possession of a private key
-over a self-declared account, not a balance.
-
-**Why it is not fixed in-program.** A LEZ program guest receives four inputs
-(`lee/state_machine/src/program.rs:89-110`) and has no syscall to read the
-commitment-set root, so the guest cannot perform the comparison itself on v0.2.0.
-Closing it properly needs either a root-exposing syscall upstream, or a
-sequencer-side check bound to the attestation, or the caller pinning a root the
-verifying application already trusts. This is the top item for a follow-up.
+`commitment_set_root` derives the current root by fetching a membership proof and
+folding it, since LEZ exposes no dedicated root RPC.
+`crates/sequencer-client/tests/root_freshness.rs` exercises both directions
+against the live public testnet, and `scripts/demo-offchain-gating.sh` shows the
+check refusing that demo's own synthetic root.
 
 ## Proving cost
 

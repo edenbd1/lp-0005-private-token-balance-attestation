@@ -31,8 +31,8 @@ Full end-to-end walkthrough, with the `RISC0_DEV_MODE=0` banner visible in the t
 | 3 | **`wallet deploy-program`** — verifier program v3 (SPEL, flat-arg ABI, shallow gate, ImageID `b32c6662…df85952a`) | [`a0ec45bb…d341c5ca`](https://explorer.testnet.lez.logos.co/transaction/a0ec45bb7817eea672bfe1cac4663969557da852a031a7a46c571193d341c5ca) |
 | 4 | **`spel gated_check`** — ECDSA-signed gate call, v3 shallow verifier accepts (host-side checks only, no proof verification) | [`fd9869f7…eafb306d`](https://explorer.testnet.lez.logos.co/transaction/fd9869f7282ae6b5fe5c29ba31854ea68c032780207bfb6f1fba5298eafb306d) |
 | 5 | **`wallet deploy-program`** — LEZ-native attestation program (ImageID `9b6be465…6c27da`) | `674aa03a8a51a2eba660ec2ab136a1b6c9ca17817c7bb3160b68904375726652` |
-| 6 | **`wallet deploy-program`** — deep verifier (ImageID `adc35497…43d40e`) | `c5ea829ffa2636b9a76a4eed90b80c45a20d4bb6260c1f913f4ec042e563d61f` |
-| 7 | ✅ **`spel gated_check`, privacy-preserving — the zero-knowledge proof is VERIFIED ON CHAIN** | `a77fe12b7027247651580fab5b3de5203ce564f8ac1fa46d8d0c9c865f4ff731` |
+| 6 | **`wallet deploy-program`** — deep verifier (ImageID `6d4c9453…97babc`) | `4e2ac5c3f07cb719bc80084837a5c86de61e0efa3c44975e88605c23e59271a9` |
+| 7 | ✅ **`spel gated_check`, privacy-preserving — the zero-knowledge proof is VERIFIED ON CHAIN** | `b9488de014c7bda54544011b3cf1e7f54562e90c5451dc402316507bd10d36b2` |
 
 ### The on-chain path, and how to check it yourself
 
@@ -57,7 +57,7 @@ Verify it from public data alone, with only `curl`, `python3` and `jq`:
 
 It checks that both programs are deployed, that the `gated_check` transaction is
 of type `PrivacyPreserving` (borsh variant byte 1, 230,186 bytes of receipt), and
-that the marker PDA `Px6D6EPbG5iJkKzbBPwJeqXGx1xZ8hLRNQEHirUDLiR` — derived from
+that the marker PDA `7R4Kq6gKREoefWDq9LdqueDpVGWeUPv1Ce15xGms6SHH` — derived from
 the verifier's ImageID and the attestation nullifier — is owned by the verifier
 program. That account could only be claimed by an accepted transaction.
 

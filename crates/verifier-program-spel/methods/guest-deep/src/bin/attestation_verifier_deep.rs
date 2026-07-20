@@ -27,11 +27,18 @@
 // `ProgramExecutionFailed`. That is precisely why the earlier deep variant's
 // `gated_check` never confirmed.
 //
-// WHAT THIS PROGRAM STILL CHECKS ITSELF
+// WHAT THIS PROGRAM CHECKS ITSELF
 //
-// Composition proves the *attestation* (Merkle membership against the claimed
-// root, and balance >= threshold). It does not prove that the presenter is the
-// one submitting. So this program still enforces, host-side:
+// Composition proves the attestation *relative to the root the witness names*.
+// That root is caller-supplied, so on its own it proves possession of a key over
+// a self-declared account. The gate therefore also enforces, host-side:
+//
+//   * **the anchored balance** — `presenter.account.balance`, read from the
+//     pre_state rather than the witness. On the privacy path LEZ computes that
+//     account's commitment from this exact state and folds the caller's
+//     membership proof into a digest the sequencer requires to be in
+//     `root_history`, so it cannot be invented. This is what makes the gate mean
+//     "holds at least N" rather than "claims to hold at least N";
 //   * context binding, so a proof for one gate cannot be replayed at another;
 //   * the threshold floor the caller pinned;
 //   * an ECDSA challenge response under `presenter_pubkey`, binding the
@@ -63,6 +70,7 @@ const E_BAD_SIGNATURE:     u32 = 3005;
 const E_BAD_PUBKEY_LEN:    u32 = 3006;
 const E_BAD_WITNESS:       u32 = 3007;
 const E_NULLIFIER_MISMATCH: u32 = 3008;
+const E_ANCHORED_BALANCE_TOO_LOW: u32 = 3009;
 
 /// ProgramId of the LEZ-native attestation program (`attestation_lez.bin`,
 /// ImageID `9b6be465fed863f89450ecf9e8ef3d2183aab83647358519230c12c0746c27da`).
@@ -145,7 +153,32 @@ mod attestation_verifier_deep {
         );
         verify_presenter_signature(&digest, &pubkey_bytes, &presenter_signature_der)?;
 
-        // 5. Rebuild the attestation instruction and check the nullifier the
+        // 5. The anchored balance check. This is what makes the gate mean something.
+        //
+        //    The witness's `balance` is caller-supplied, and so is its
+        //    `merkle_root`: the circuit only checks that the caller's own path
+        //    folds to the caller's own root, so a prover can invent a one-leaf
+        //    tree holding any balance. That check alone proves possession of a
+        //    key over a self-declared account, not a balance.
+        //
+        //    `presenter.account.balance` is different. On the privacy path, a
+        //    private account appearing as an authorized pre_state has its
+        //    commitment computed by LEZ from this exact state and folded against
+        //    the caller's membership proof into a CommitmentSetDigest
+        //    (`privacy_preserving_circuit/src/output.rs:307-315`), which the
+        //    sequencer then requires to be in `root_history`
+        //    (`lee/state_machine/src/state.rs:302-306`). A fabricated membership
+        //    proof yields a digest that is not a historical root, and the
+        //    transaction is rejected. So this balance is anchored to real chain
+        //    state and cannot be invented.
+        if presenter.account.balance < minimum_threshold {
+            return Err(SpelError::custom(
+                E_ANCHORED_BALANCE_TOO_LOW,
+                "the presenter account's on-chain balance is below the gate's minimum",
+            ));
+        }
+
+        // 6. Rebuild the attestation instruction and check the nullifier the
         //    caller pinned is the one this witness actually yields. Without this
         //    a caller could prove one attestation while claiming another's PDA.
         let witness: attestation_core::PrivateInputs =
@@ -169,7 +202,7 @@ mod attestation_verifier_deep {
             ));
         }
 
-        // 6. Declare the chained call. The privacy circuit will execute and
+        // 7. Declare the chained call. The privacy circuit will execute and
         //    prove the attestation program, then discharge the assumption with
         //    env::verify over its ProgramOutput. Merkle membership and the
         //    balance comparison are proved there, in zero knowledge.
@@ -180,7 +213,7 @@ mod attestation_verifier_deep {
             &instruction,
         )];
 
-        // 7. Claim the marker PDA and pass the presenter through unchanged.
+        // 8. Claim the marker PDA and pass the presenter through unchanged.
         Ok(SpelOutput::execute(
             vec![gate_marker, presenter],
             chained,

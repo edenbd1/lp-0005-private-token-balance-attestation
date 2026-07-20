@@ -40,9 +40,16 @@ Block height at re-deploy:    ~27820
 
 #### 1. Attestation circuit — Risc0 guest proving `balance >= N`
 
-The inner zero-knowledge circuit. Generates a Risc0 receipt over the LEZ
-private-account commitment format. The verifier program below composes this
-proof via `env::verify` (chained-call).
+The inner zero-knowledge circuit for the **off-chain** path. Generates a Risc0
+receipt over the LEZ private-account commitment format, which a recipient
+verifies locally.
+
+It is a standalone Risc0 guest, not a LEZ program: it commits a bespoke
+`PublicJournal` that cannot decode as a `ProgramOutput`, so LEZ cannot compose
+it. The on-chain path therefore uses the LEZ-native attestation program in
+section 5 instead. An earlier revision of this document claimed the verifier
+composed this circuit via `env::verify`; that was the intent, and it is why the
+v2 gate never confirmed.
 
 ```
 Source:           crates/attestation-circuit/methods/guest/src/bin/attestation.rs
@@ -81,19 +88,29 @@ Deploy tx:        2bf10138c085429d9d6fb46793f0a089376eff90558fce4a66634447923723
 
 #### 3. Verifier program v3 (shallow gate — confirmable today)
 
-The v2 verifier declares a `ChainedCall` to `ATTESTATION_PROGRAM_ID` so the
-LEZ PPE pipeline composes the inner Risc0 receipt via `env::verify`. That
-architecture is the design ideal but currently requires the wallet to bundle
-the inner receipt with the outbound transaction — a feature the `spel` CLI
-does not yet expose.
+The v2 verifier declares a `ChainedCall` to the standalone attestation circuit,
+which cannot work: on a **public** transaction the sequencer resolves a chained
+call by re-executing the callee host-side (`lee/state_machine/src/program.rs:73-77`),
+and the standalone circuit's journal does not decode as a `ProgramOutput`, so
+execution fails. That is the mechanical reason a `gated_check` against v2 never
+confirmed. The working design is the deep gate in section 5.
 
-v3 is a **shallow gate** with the same host-side validation (context match
+v3 is a **shallow gate**: it runs the same host-side validation (context match
 + threshold floor + ECDSA presenter-signature check, all the rules in
-`check_gate`) but without the `ChainedCall`. The security argument is
-defense-in-depth: an attacker cannot produce a valid presenter signature
-without knowing the presenter's private key, and the off-chain verifier
-re-checks the inner Risc0 receipt before signing the journal anyway. v3 is
-the confirmable end-to-end path today.
+`check_gate`) but declares no `ChainedCall`, and therefore **verifies no
+zero-knowledge proof**. Every value it checks is supplied by the caller,
+including `presenter_pubkey`, so what it establishes is that the submitter holds
+the key they nominated — not that any attestation is valid.
+
+That limitation is not a matter of effort. A LEZ **public** transaction proves
+and verifies nothing at all: the sequencer merely re-executes the program
+(`lee/state_machine/src/program.rs:73-77`, *"Execute the program (without
+proving)"*), and feeds it four public inputs with no channel for a witness. No
+program submitted that way can ever verify a proof.
+
+**The v4 deep gate below does verify the proof**, on the privacy-preserving
+transaction path. v3 is retained because it is cheap and confirmable in a single
+public transaction, but it should not be read as proof verification.
 
 ```
 Source:           crates/verifier-program-spel/methods/guest-shallow/src/bin/attestation_verifier_shallow.rs
@@ -130,7 +147,117 @@ The full pipeline runs end-to-end:
    guest validates context + threshold + signature and the tx confirms on
    chain in one block.
 
-#### Deep verifier (v2) — architecturally ideal, blocked on wallet update
+#### 5. Deep gate (v4) — the proof is VERIFIED ON CHAIN
+
+This is the path that satisfies the prize's on-chain criterion, and it is live on
+the public testnet.
+
+**How the verification actually happens.** On the privacy-preserving transaction
+path the *client* proves locally (`lez/wallet/src/lib.rs:578`). For each chained
+call, LEZ's privacy circuit performs a genuine recursive composition:
+
+```rust
+// lee/privacy_preserving_circuit/src/execution_state.rs:149
+env::verify(chained_call.program_id, program_output_words)
+```
+
+and the sequencer then verifies the resulting receipt against the node-pinned
+`PRIVACY_PRESERVING_CIRCUIT_ID`
+(`privacy_preserving_transaction/circuit.rs:33-39`). So the attestation's proof
+is verified on chain as a precondition of the transaction being accepted.
+
+For that composition to apply, the callee must be a real LEZ program emitting a
+`ProgramOutput`. The standalone circuit commits a bespoke journal that cannot
+decode as one, which is exactly why the v2 deep gate never confirmed. `v4`
+therefore chains to a **LEZ-native attestation program**.
+
+**Privacy is preserved** because a privacy `Message` publishes only commitments
+and nullifiers, never `program_id` nor `instruction_data`
+(`privacy_preserving_transaction/message.rs:14-24`). The witness travels in the
+instruction on that path, and only on that path.
+
+```
+Attestation program (LEZ-native)
+Source:           crates/attestation-circuit/methods/guest-lez/src/bin/attestation_lez.rs
+ImageID (32B):    9b6be465fed863f89450ecf9e8ef3d2183aab83647358519230c12c0746c27da
+Binary:           artifacts/programs/attestation_lez.bin (298,956 bytes)
+Deploy tx:        674aa03a8a51a2eba660ec2ab136a1b6c9ca17817c7bb3160b68904375726652
+
+Verifier program (deep gate)
+Source:           crates/verifier-program-spel/methods/guest-deep/src/bin/attestation_verifier_deep.rs
+ImageID (32B):    adc354975213ee20d98c43def000bdb5db6642115b9ec0695bb71c064143d40e
+Binary:           artifacts/programs/attestation_verifier_deep.bin (506,812 bytes)
+Deploy tx:        c5ea829ffa2636b9a76a4eed90b80c45a20d4bb6260c1f913f4ec042e563d61f
+
+Confirmed gated_check (privacy-preserving)
+Tx hash:          a77fe12b7027247651580fab5b3de5203ce564f8ac1fa46d8d0c9c865f4ff731
+Transaction type: PrivacyPreserving (borsh variant byte 1)
+On-chain size:    230,186 bytes — a real receipt, not a bare instruction
+Marker PDA:       Px6D6EPbG5iJkKzbBPwJeqXGx1xZ8hLRNQEHirUDLiR
+                  owned by attestation_verifier_deep
+```
+
+**Verify it yourself**, with only `curl`, `python3` and `jq`, trusting nothing in
+this repository:
+
+```bash
+./scripts/verify-onchain-proof.sh
+```
+
+**The on-chain trace.** A privacy transaction publishes no program id, so the
+instruction claims a PDA seeded by the attestation nullifier. Anyone can
+recompute it from the verifier's ImageID plus the nullifier and see that the
+verifier program owns it. That account could only be claimed by an accepted
+transaction, and acceptance required the sequencer to verify the proof.
+
+**Evidence that the composition is real, not a signature check in disguise.**
+Submitting a witness whose balance is below the attested threshold fails at
+proving time, inside the chained attestation guest:
+
+```
+ProgramProveFailed("Guest panicked: balance is below the attested threshold")
+```
+
+A false attestation cannot produce a transaction at all. Separately, the
+sequencer has no `RISC0_DEV_MODE` in its environment and runs
+`receipt.verify(...)`, so acceptance implies a genuine receipt even if a client
+were in dev mode.
+
+**Replay protection.** Re-submitting the same nullifier fails, because claiming a
+PDA requires the account to still have the default program owner. Note where this
+failure happens: it is raised **client-side, during proving**, before a
+transaction exists. No transaction was submitted and rejected by the sequencer.
+The protection is real either way, since a second claim is unprovable in-circuit
+(`execution_state.rs:376-380`), but the evidence below is a prover error, not
+testnet evidence:
+
+```
+ProgramProveFailed("Guest panicked: account validation failed: AccountAlreadyInitialized { account_index: 0 }")
+```
+
+**Reproducing a gated_check.** The witness comes from real chain state, not a
+synthetic Merkle path: `npk` and identifier from the wallet's private account,
+balance/nonce/program_owner from its on-chain state, and the membership proof
+from the sequencer's own `getProofForCommitment`.
+
+```bash
+python3 scripts/build-privacy-gated-check.py \
+  --witness witness.json --presenter presenter.json \
+  --context <label> --threshold <N> --out gc.args
+
+spel --idl idl/attestation_verifier_deep.idl.json \
+     --program artifacts/programs/attestation_verifier_deep.bin \
+     --bin-attestation artifacts/programs/attestation_lez.bin \
+     -- gated_check --presenter Private/<account-id> $(tr '\n' ' ' < gc.args)
+```
+
+> **The CLI may print `Transaction NOT confirmed`.** Proving takes well over ten
+> minutes and can outrun the wallet's block-polling window, so the CLI gives up
+> before the transaction lands. It does land. Check with `getTransaction` rather
+> than trusting the CLI's verdict — that is what happened to the transaction
+> recorded above.
+
+#### Deep verifier (v2) — superseded by v4
 
 The deep verifier (v2, ImageID `7715f791…d8a1db429`, deploy tx [`2bf10138…23723a9`](https://explorer.testnet.lez.logos.co/transaction/2bf10138c085429d9d6fb46793f0a089376eff90558fce4a66634447923723a9)) declares the chained call that the LEZ PPE pipeline can compose. A `gated_check` against v2 was submitted before the testnet reset but did not confirm, because (a) the wallet/spel CLI doesn't bundle the inner Risc0 receipt and (b) the verifier's canonical digest didn't match the SDK at the time of submission. The digest mismatch is fixed in v3.
 
@@ -138,14 +265,19 @@ Both verifiers are preserved on chain as historical evidence of the iteration.
 
 ### Full transaction record (signer = `CbgR6tj5kWx5oziiFptM7jMvrQeYY3Mzaao6ciuhSr2r`)
 
-All four are live on the current chain and independently verifiable.
+All are live on the current chain and independently verifiable. Rows 5 to 7 are the
+deep path, where the zero-knowledge proof is genuinely verified on chain; run
+`./scripts/verify-onchain-proof.sh` to check it from public data alone.
 
 | # | Instruction | Explorer link |
 |---|---|---|
 | 1 | **`wallet deploy-program`** — attestation circuit | [`4593060b…3db989d`](https://explorer.testnet.lez.logos.co/transaction/4593060b507fef640b7f9c3d25b75432a83bc7097a439334436e532983db989d) |
 | 2 | **`wallet deploy-program`** — verifier program v2 (SPEL, flat-arg ABI, deep gate with ChainedCall) | [`2bf10138…23723a9`](https://explorer.testnet.lez.logos.co/transaction/2bf10138c085429d9d6fb46793f0a089376eff90558fce4a66634447923723a9) |
 | 3 | **`wallet deploy-program`** — verifier program v3 (SPEL, flat-arg ABI, shallow gate — confirmable today) | [`a0ec45bb…d341c5ca`](https://explorer.testnet.lez.logos.co/transaction/a0ec45bb7817eea672bfe1cac4663969557da852a031a7a46c571193d341c5ca) |
-| 4 | ✅ **`spel gated_check`** — real ECDSA-signed gate call against the v3 verifier, **CONFIRMED on chain** | [`fd9869f7…eafb306d`](https://explorer.testnet.lez.logos.co/transaction/fd9869f7282ae6b5fe5c29ba31854ea68c032780207bfb6f1fba5298eafb306d) |
+| 4 | **`spel gated_check`** — ECDSA-signed gate call against the v3 shallow verifier (no proof verification) | [`fd9869f7…eafb306d`](https://explorer.testnet.lez.logos.co/transaction/fd9869f7282ae6b5fe5c29ba31854ea68c032780207bfb6f1fba5298eafb306d) |
+| 5 | **`wallet deploy-program`** — LEZ-native attestation program (v4 path) | `674aa03a8a51a2eba660ec2ab136a1b6c9ca17817c7bb3160b68904375726652` |
+| 6 | **`wallet deploy-program`** — deep verifier (v4 path) | `c5ea829ffa2636b9a76a4eed90b80c45a20d4bb6260c1f913f4ec042e563d61f` |
+| 7 | ✅ **`spel gated_check`** — privacy-preserving, **proof VERIFIED ON CHAIN** | `a77fe12b7027247651580fab5b3de5203ce564f8ac1fa46d8d0c9c865f4ff731` |
 
 Account state on the explorer:
 

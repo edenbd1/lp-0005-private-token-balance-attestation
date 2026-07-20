@@ -11,7 +11,7 @@ LP-0005 ships four reference integrations under `integrations/`. Each is a disti
 | 3 | [`integrations/premium-features`](../integrations/premium-features) | Client-side library      | Premium feature gating in apps   | Local verifier embed     |
 | 4 | [`integrations/nostr-auth-gate`](../integrations/nostr-auth-gate) | NIP-42 relay AUTH        | Nostr ecosystem relay auth       | Bridged via Nostr websockets |
 
-All four compile and link against the SDK. All four reference the deployed verifier program ID. All four are independently consumable as Rust crates.
+All four compile and link against the SDK and are independently consumable as Rust crates. None of them hard-codes a deployed program id: they consume the gate semantics through `attestation-verifier-program::check_gate`, so they are not tied to a particular deployment. Pointing one at the on-chain path means passing the verifier program id at call time, as `scripts/build-privacy-gated-check.py` does.
 
 ## Why `nostr-auth-gate` is the outside-party integration
 

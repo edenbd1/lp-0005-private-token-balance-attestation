@@ -6,6 +6,14 @@ Prove that a shielded token account holds at least `N` tokens — without reveal
 
 > Submission for [LP-0005 on ns.com](https://ns.com/earn/lp-0005-private-token-balance-attestation). For an evaluator's checklist, see [`docs/criteria-checklist.md`](./docs/criteria-checklist.md).
 
+## Narrated demo video
+
+Full end-to-end walkthrough, with the `RISC0_DEV_MODE=0` banner visible in the terminal during proof generation:
+
+[![LP-0005 narrated demo](https://img.youtube.com/vi/Ta18-p3sz3M/maxresdefault.jpg)](https://youtu.be/Ta18-p3sz3M)
+
+<https://youtu.be/Ta18-p3sz3M> — architecture overview, live `scripts/demo.sh` run, explorer walkthrough of the deploy transactions and the confirmed `gated_check`, repository tour, and the Basecamp `.lgx` asset.
+
 ## Status
 
 **✅ Deployed live on the public Logos Execution Zone testnet.**
@@ -14,14 +22,52 @@ Prove that a shielded token account holds at least `N` tokens — without reveal
 - Block explorer: `https://explorer.testnet.lez.logos.co`
 - Signer (anchorer): [`CbgR6tj5kWx5oziiFptM7jMvrQeYY3Mzaao6ciuhSr2r`](https://explorer.testnet.lez.logos.co/account/CbgR6tj5kWx5oziiFptM7jMvrQeYY3Mzaao6ciuhSr2r)
 
-**Public testnet — both programs deployed AND an end-to-end ECDSA-signed `gated_check` call CONFIRMED ON CHAIN. Every tx independently verifiable via `getTransaction` JSON-RPC or by clicking the explorer link:**
+**Public testnet — programs deployed, and a `gated_check` whose zero-knowledge proof is VERIFIED ON CHAIN. Every tx independently verifiable via `getTransaction` JSON-RPC or by clicking the explorer link:**
 
 | # | Action | Tx hash (click for explorer) |
 |---|---|---|
 | 1 | **`wallet deploy-program`** — attestation circuit (`balance ≥ N` Risc0 guest, ImageID `dbc40b94…6a9d4d`) | [`4593060b…3db989d`](https://explorer.testnet.lez.logos.co/transaction/4593060b507fef640b7f9c3d25b75432a83bc7097a439334436e532983db989d) |
 | 2 | **`wallet deploy-program`** — verifier program v2 (SPEL, flat-arg ABI, deep gate, ImageID `7715f791…d8a1db429`) | [`2bf10138…23723a9`](https://explorer.testnet.lez.logos.co/transaction/2bf10138c085429d9d6fb46793f0a089376eff90558fce4a66634447923723a9) |
 | 3 | **`wallet deploy-program`** — verifier program v3 (SPEL, flat-arg ABI, shallow gate, ImageID `b32c6662…df85952a`) | [`a0ec45bb…d341c5ca`](https://explorer.testnet.lez.logos.co/transaction/a0ec45bb7817eea672bfe1cac4663969557da852a031a7a46c571193d341c5ca) |
-| 4 | ✅ **`spel gated_check` CONFIRMED** — real Risc0 receipt + ECDSA-signed challenge → v3 verifier accepts | [`fd9869f7…eafb306d`](https://explorer.testnet.lez.logos.co/transaction/fd9869f7282ae6b5fe5c29ba31854ea68c032780207bfb6f1fba5298eafb306d) |
+| 4 | **`spel gated_check`** — ECDSA-signed gate call, v3 shallow verifier accepts (host-side checks only, no proof verification) | [`fd9869f7…eafb306d`](https://explorer.testnet.lez.logos.co/transaction/fd9869f7282ae6b5fe5c29ba31854ea68c032780207bfb6f1fba5298eafb306d) |
+| 5 | **`wallet deploy-program`** — LEZ-native attestation program (ImageID `9b6be465…6c27da`) | `674aa03a8a51a2eba660ec2ab136a1b6c9ca17817c7bb3160b68904375726652` |
+| 6 | **`wallet deploy-program`** — deep verifier (ImageID `adc35497…43d40e`) | `c5ea829ffa2636b9a76a4eed90b80c45a20d4bb6260c1f913f4ec042e563d61f` |
+| 7 | ✅ **`spel gated_check`, privacy-preserving — the zero-knowledge proof is VERIFIED ON CHAIN** | `a77fe12b7027247651580fab5b3de5203ce564f8ac1fa46d8d0c9c865f4ff731` |
+
+### The on-chain path, and how to check it yourself
+
+Rows 1 to 4 are the **shallow** gate. It validates context, threshold and an ECDSA
+challenge response, but it verifies **no zero-knowledge proof** — and no program
+on that path could. A LEZ *public* transaction proves and verifies nothing: the
+sequencer merely re-executes the program (`lee/state_machine/src/program.rs:73-77`,
+*"Execute the program (without proving)"*).
+
+Rows 5 to 7 are the **deep** gate, on the privacy-preserving path. There the client
+proves locally and LEZ's privacy circuit composes the chained call to the
+attestation program with a real `env::verify`
+(`lee/privacy_preserving_circuit/src/execution_state.rs:149`); the sequencer then
+verifies that receipt against the pinned `PRIVACY_PRESERVING_CIRCUIT_ID`. The
+attestation's proof is therefore verified on chain as a precondition of acceptance.
+
+Verify it from public data alone, with only `curl`, `python3` and `jq`:
+
+```bash
+./scripts/verify-onchain-proof.sh
+```
+
+It checks that both programs are deployed, that the `gated_check` transaction is
+of type `PrivacyPreserving` (borsh variant byte 1, 230,186 bytes of receipt), and
+that the marker PDA `Px6D6EPbG5iJkKzbBPwJeqXGx1xZ8hLRNQEHirUDLiR` — derived from
+the verifier's ImageID and the attestation nullifier — is owned by the verifier
+program. That account could only be claimed by an accepted transaction.
+
+Two behaviours confirmed against the deployed programs. A witness whose balance is
+below the attested threshold **cannot produce a transaction at all**
+(`ProgramProveFailed`, raised inside the chained attestation guest), and replaying
+the same nullifier is likewise unprovable (`AccountAlreadyInitialized`). Both
+failures occur client-side during proving, before any transaction exists — which
+is the stronger outcome, but it means they are prover evidence rather than
+sequencer-rejection evidence.
 
 Full deployment record (with reproduction commands) in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 

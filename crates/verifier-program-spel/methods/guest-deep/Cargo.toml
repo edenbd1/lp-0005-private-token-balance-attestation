@@ -1,0 +1,59 @@
+# SPEL guest for the LP-0005 on-chain verifier — deep variant.
+#
+# This is the variant that makes the on-chain path a *real* proof verification.
+# It declares a ChainedCall to the LEZ-native attestation program, so that on the
+# privacy-preserving transaction path LEZ's own circuit composes the callee's
+# receipt with `env::verify`
+# (lee/privacy_preserving_circuit/src/execution_state.rs:149).
+#
+# Differences from the older guest/ variant, which never confirmed:
+#   * chains to the LEZ-native attestation program (a real LEZ program emitting
+#     a ProgramOutput) instead of the standalone Risc0 guest, whose bespoke
+#     journal cannot decode as a ProgramOutput and so always failed execution;
+#   * targets lee_core v0.2.0 rather than nssa_core v0.2.0-rc3;
+#   * uses upstream spel-framework v0.6.0 rather than a fork. The Vec<String>
+#     CLI support the fork carried was upstreamed in logos-co/spel#189, and
+#     0.6.0 is also the first release speaking the lee/lee_core storage format;
+#   * claims a PDA seeded by the attestation nullifier, so the gate leaves an
+#     observable, replay-protected marker in public state even though a privacy
+#     transaction publishes neither program id nor instruction data.
+
+[workspace]
+
+[package]
+name        = "attestation-verifier-deep-guest"
+version     = "0.1.0"
+edition     = "2021"
+license     = "MIT OR Apache-2.0"
+description = "SPEL guest for the LP-0005 on-chain verifier — deep variant, chains to the LEZ-native attestation program so the proof is genuinely verified on chain."
+publish     = false
+
+[[bin]]
+name = "attestation_verifier_deep"
+path = "src/bin/attestation_verifier_deep.rs"
+
+[dependencies]
+spel-framework = { git = "https://github.com/logos-co/spel.git", tag = "v0.6.0" }
+# spel-framework's macro emits `nssa_core::` paths, so lee_core must be in
+# scope under that name. Same aliasing spel itself uses (spel-framework/Cargo.toml:14).
+nssa_core      = { git = "https://github.com/logos-blockchain/logos-execution-zone.git", tag = "v0.2.0", features = ["host"], package = "lee_core" }
+risc0-zkvm     = { version = "=3.0.5", default-features = false, features = ["std"] }
+
+attestation-core = { path = "../../../attestation-core", default-features = false }
+
+serde = { version = "1.0", default-features = false, features = ["derive", "alloc"] }
+sha2  = { version = "0.10", default-features = false }
+k256  = { version = "0.13", default-features = false, features = ["ecdsa", "alloc"] }
+
+# Pinned for the risc0 guest toolchain (rustc 1.88-dev).
+ruint = "=1.17.2"
+
+# Risc0 patches sha2 to use its hardware accelerator inside the guest.
+[patch.crates-io]
+sha2 = { git = "https://github.com/risc0/RustCrypto-hashes.git", tag = "sha2-v0.10.8-risczero.0" }
+
+[profile.release]
+opt-level     = 3
+lto           = "thin"
+codegen-units = 1
+panic         = "abort"

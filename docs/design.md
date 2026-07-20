@@ -121,7 +121,10 @@ verifier:
 Logos Delivery does not ship a Rust client today (`logos-delivery-module` is Qt/C++). The SDK ships:
 - a Rust trait `DeliveryTransport` modelling send/subscribe,
 - a `qt-bridge` impl that shells out to a small Qt helper (initial path),
-- a future `liblogosdelivery-rs` FFI binding (tracked in task #16).
+- `waku_rest::WakuRestTransport` — the working backend. Logos Delivery is a Waku node, so this
+  publishes and subscribes over that node's REST interface using Delivery's own content-topic
+  scheme and envelope. An FFI binding over `liblogosdelivery` would additionally exercise the Qt
+  plugin surface, but is not required for headless Rust integrations.
 
 The credential format is intentionally transport-agnostic; the trait makes the SDK testable without Logos Core present.
 

@@ -56,12 +56,24 @@ impl PresenterKey {
     /// Sign a verifier-supplied challenge bound to the journal.
     pub fn sign(&self, nonce: &[u8; 32], journal: &PublicJournal) -> Vec<u8> {
         let digest = presenter_challenge_digest(nonce, journal);
-        let sig: Signature = self.0.sign(&digest);
+        self.sign_digest(&digest)
+    }
+
+    /// Sign an already-computed challenge digest.
+    ///
+    /// The privacy-preserving on-chain path has no pre-generated credential to
+    /// derive a journal from: the attestation is proved inline by the LEZ program,
+    /// so the digest is built from the witness and statement directly. The bytes
+    /// signed are identical either way, so a signature made here verifies in the
+    /// off-chain verifier and in the on-chain guest without modification.
+    pub fn sign_digest(&self, digest: &[u8; 32]) -> Vec<u8> {
+        let sig: Signature = self.0.sign(digest);
         sig.to_der().as_bytes().to_vec()
     }
 }
 
 /// A complete attestation: the Risc0 receipt and the decoded journal.
+#[derive(Debug)]
 pub struct AttestationProof {
     pub receipt: Receipt,
     pub journal: PublicJournal,
@@ -111,6 +123,99 @@ pub fn prove(req: ProveRequest) -> Result<AttestationProof> {
 /// or to delegate to Bonsai.
 pub fn prove_groth16(req: ProveRequest) -> Result<AttestationProof> {
     prove_with_kind(req, ReceiptKind::Groth16)
+}
+
+/// Why an attestation could not be produced.
+///
+/// Proving fails for a small number of genuinely distinct reasons, and a bare
+/// risc0 error tells the user almost nothing about which. Each variant here
+/// names the cause and what to do about it.
+#[derive(Debug, thiserror::Error)]
+pub enum ProveError {
+    /// The witness does not satisfy the statement. The guest asserted and
+    /// aborted, so no proof exists — by design.
+    #[error("the attestation is not true for these inputs: {reason}\n\
+             This is not a bug: the circuit refuses to prove a false statement.")]
+    StatementFalse { reason: String },
+
+    /// The Risc0 toolchain is missing or the wrong version.
+    #[error("the Risc0 prover is unavailable: {0}\n\
+             Install it with:  curl -L https://risczero.com/install | bash && rzup install r0vm 3.0.5")]
+    ProverUnavailable(String),
+
+    /// Groth16 wrapping needs the BN254 CRS, which ships in a Docker sidecar.
+    #[error("Groth16 wrapping failed: {0}\n\
+             It needs Docker running for the BN254 prover sidecar. Either start Docker, \
+             or use the default composite receipt, which needs no sidecar but is ~300 KB \
+             instead of ~1.5 KB.")]
+    Groth16Unavailable(String),
+
+    /// The guest ran past the cycle limit.
+    #[error("proving exceeded the zkVM session limit: {0}\n\
+             The most common cause is an over-deep Merkle path; check merkle_path.len().")]
+    SessionLimit(String),
+
+    /// Anything else, passed through with its context intact.
+    #[error("proof generation failed: {0}")]
+    Other(String),
+}
+
+impl ProveError {
+    /// Classify a raw prover error into something actionable.
+    ///
+    /// Risc0 surfaces failures as opaque strings, so this inspects them. The
+    /// ordering matters: a guest panic mentions its assert message, which is the
+    /// most informative case and must be matched before the generic ones.
+    fn classify(e: &anyhow::Error) -> Self {
+        let msg = format!("{e:#}");
+        let low = msg.to_lowercase();
+
+        // Guest asserts carry their own message; surface it verbatim.
+        for marker in [
+            "balance is below the attested threshold",
+            "merkle path does not anchor to the claimed root",
+        ] {
+            if msg.contains(marker) {
+                return Self::StatementFalse {
+                    reason: marker.to_owned(),
+                };
+            }
+        }
+        if low.contains("guest panicked") {
+            let reason = msg
+                .split("Guest panicked:")
+                .nth(1)
+                .unwrap_or(&msg)
+                .trim()
+                .to_owned();
+            return Self::StatementFalse { reason };
+        }
+        if low.contains("session limit") || low.contains("cycle limit") {
+            return Self::SessionLimit(msg);
+        }
+        if low.contains("groth16") || low.contains("stark2snark") || low.contains("docker") {
+            return Self::Groth16Unavailable(msg);
+        }
+        if low.contains("r0vm") || low.contains("no such file") || low.contains("not found") {
+            return Self::ProverUnavailable(msg);
+        }
+        Self::Other(msg)
+    }
+}
+
+/// Same as [`prove`], but with failures classified into [`ProveError`].
+///
+/// Prefer this at any user-facing boundary: it is the difference between
+/// "proof generation failed: exit status 101" and a message naming the cause.
+pub fn prove_checked(req: ProveRequest) -> std::result::Result<AttestationProof, ProveError> {
+    prove(req).map_err(|e| ProveError::classify(&e))
+}
+
+/// Groth16 counterpart of [`prove_checked`].
+pub fn prove_groth16_checked(
+    req: ProveRequest,
+) -> std::result::Result<AttestationProof, ProveError> {
+    prove_groth16(req).map_err(|e| ProveError::classify(&e))
 }
 
 fn prove_with_kind(req: ProveRequest, kind: ReceiptKind) -> Result<AttestationProof> {

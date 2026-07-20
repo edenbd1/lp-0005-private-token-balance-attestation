@@ -30,6 +30,13 @@ build/
 
 # Demo artifacts (regenerable)
 artifacts/
+# ...except the deployed program binaries. These are the exact bytes that were
+# submitted on chain: a LEZ deployment tx hash is SHA256(borsh(bytecode)), so
+# anyone can recompute it from these files and match it against the deploy
+# transactions in docs/DEPLOYMENT.md. Committing them also lets a reviewer, and
+# CI, deploy and exercise the programs without a Docker risc0 rebuild.
+!artifacts/programs/
+!artifacts/programs/*.bin
 
 # External repos cloned for recon (not part of submission)
 _external/

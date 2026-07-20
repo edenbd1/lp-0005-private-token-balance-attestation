@@ -154,4 +154,87 @@ pub fn compute_nullifier(
     h.finalize().into()
 }
 
+/// The public half of an attestation: what the proof asserts, with no witness in it.
+///
+/// Split out from [`PublicJournal`] because the LEZ-native program derives the
+/// nullifier itself rather than accepting one from the caller.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AttestStatement {
+    /// Merkle root the proof is anchored against.
+    pub merkle_root: [u8; 32],
+    /// Threshold `N` the proof attests `balance >= N`.
+    pub threshold: u128,
+    /// Application-defined context identifier, binding the proof to one gate.
+    pub context_id: [u8; 32],
+    /// secp256k1 compressed key the presenter must later sign a challenge with.
+    #[serde(with = "BigArray")]
+    pub presenter_pubkey: [u8; 33],
+}
+
+/// Instruction payload of the LEZ-native attestation program.
+///
+/// On the privacy-preserving transaction path this never reaches the chain in
+/// the clear: a privacy `Message` publishes commitments and nullifiers only, and
+/// carries neither `program_id` nor `instruction_data`
+/// (`lee/state_machine/src/privacy_preserving_transaction/message.rs`). The
+/// witness below is therefore safe to put in the instruction *on that path*, and
+/// only on that path.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AttestInstruction {
+    pub witness: PrivateInputs,
+    pub statement: AttestStatement,
+}
+
+/// Everything the attestation proves, in one place.
+///
+/// Both the standalone Risc0 guest and the LEZ-native program call this, so the
+/// two cannot drift apart. Panics (which abort the guest, failing the proof) if
+/// any statement does not hold. Returns the nullifier on success.
+///
+/// Proves, in order:
+/// 1. `account_id = SHA256(PRIVATE_ACCOUNT_ID_PREFIX || npk || identifier_LE)`
+/// 2. `commitment = SHA256(COMMITMENT_PREFIX || account_id || program_owner_LE
+///    || balance_LE || nonce_LE || data_hash)`
+/// 3. `SHA256(commitment)` folds via `merkle_path` to `statement.merkle_root`
+/// 4. `balance >= statement.threshold`
+/// 5. `nullifier = SHA256(NULLIFIER_PREFIX || presenter_pubkey || context_id || account_id)`
+#[must_use]
+pub fn attest(witness: &PrivateInputs, statement: &AttestStatement) -> [u8; 32] {
+    let account_id = derive_account_id(&witness.npk, witness.identifier);
+
+    let leaf_commitment = compute_commitment(
+        &account_id,
+        &witness.program_owner,
+        witness.balance,
+        witness.nonce,
+        &witness.data_hash,
+    );
+
+    // LEZ hashes leaves once before insertion into the commitment set
+    // (`lee/state_machine/src/merkle_tree/mod.rs`).
+    let leaf_hash: [u8; 32] = {
+        use sha2::{Digest, Sha256};
+        let mut h = Sha256::new();
+        h.update(leaf_commitment);
+        h.finalize().into()
+    };
+
+    let recovered_root = fold_merkle_path(&leaf_hash, witness.leaf_index, &witness.merkle_path);
+    assert!(
+        recovered_root == statement.merkle_root,
+        "merkle path does not anchor to the claimed root",
+    );
+
+    assert!(
+        witness.balance >= statement.threshold,
+        "balance is below the attested threshold",
+    );
+
+    compute_nullifier(
+        &statement.presenter_pubkey,
+        &statement.context_id,
+        &account_id,
+    )
+}
+
 use sha2 as _;

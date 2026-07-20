@@ -4,7 +4,7 @@ Transport abstraction for LP-0005 credentials over Logos Delivery (a.k.a. Logos 
 
 ## Why a trait
 
-Logos Delivery currently ships only as a Qt/C++ Logos Core module (see [`_external/logos-delivery-module`](https://github.com/logos-co/logos-delivery-module)). The Rust binding does not exist upstream yet. The `Transport` trait lets the rest of the SDK be written and tested today; we plug in a real backend later (see task #16).
+Logos Delivery ships as a Qt/C++ Logos Core module and exposes no Rust binding. Rather than write an FFI shim, `waku_rest.rs` reaches the Waku node underneath it: Delivery's `createNode` takes a `WakuNodeConf`, so Logos Delivery *is* a Waku node. The transport uses the same LIP-23 content topics and the same `{contentTopic, payload(base64), ephemeral}` envelope Delivery's `send()` builds, over the node's REST interface. `scripts/demo-offchain-gating.sh` runs it across two peered nodes. `inmem.rs` remains for unit tests and is not a Logos Messaging transport.
 
 ## Surface
 

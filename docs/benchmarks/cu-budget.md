@@ -31,21 +31,60 @@ proved in 6.524752166s
 
 The Groth16 wrap is the path to use when the credential needs to traverse a transport with a payload cap (Logos Delivery's default `maxMessageSize` is ≈ 150 KB; the composite receipt exceeds this, the Groth16-wrapped one fits with ~99 % headroom).
 
-## Per-instruction breakdown (verifier program)
+## On-chain cost of `gated_check` (measured)
 
-For the SPEL `gated_check` instruction (host-side validation; the call is composed in the LEZ PPE pipeline):
+This is the number the prize asks for: the compute cost the **sequencer** incurs
+when it includes a `gated_check` transaction in a block.
 
-| Step | Implementation site | Order of magnitude |
-|---|---|---|
-| Context-id check (32-byte equality) | `attestation_verifier::gated_check` line ~74 | ~32 cycles |
-| Threshold floor (u128 compare) | `attestation_verifier::gated_check` line ~79 | ~16 cycles |
-| Presenter pubkey length check | `attestation_verifier::gated_check` line ~83 | ~10 cycles |
-| Canonical digest (SHA-256 over ~145 bytes, 5 blocks) | `presenter_challenge_digest` | ~1,280 cycles |
-| secp256k1 ECDSA verify (k256, with Risc0 hardware acceleration) | `verify_presenter_signature` | ~50,000 cycles |
-| Account post-state pack | `SpelOutput::execute` | ~200 cycles |
-| **Total `gated_check`** | | **~51,500 cycles** |
+The LEZ sequencer exposes no per-transaction cycle telemetry — there is no such
+field on `getTransaction`, and neither the sequencer nor the indexer RPC surfaces
+one — so the figure cannot be read back off the chain. It is instead obtained by
+replaying the sequencer's own execution exactly: same deployed binary, same four
+inputs in the same order, same 32M session limit, same executor. See
+`crates/cu-bench/`, which mirrors `Program::execute` and `Program::write_inputs`
+from LEZ `v0.2.0` (`lee/state_machine/src/program.rs:55-110`).
 
-The verifier program's cycle cost is dominated by the ECDSA verification. The chained-call composition (deep verifier path) would add the inner attestation circuit's cycles on top, for a combined cost of ~131,000 + 51,500 = ~183,000 cycles per gated_check transaction.
+Measured 2026-07-20 against the deployed v3 shallow verifier
+(ImageID `b32c6662…df85952a`), with the account pre-state fetched live from
+`https://testnet.lez.logos.co`:
+
+| Metric | Value |
+|---|---|
+| Instruction | `gated_check` |
+| Pre-state accounts | 1 |
+| Instruction data | 275 u32 words |
+| Segments | 6 |
+| **User cycles** | **5,673,563** |
+| **Proving cycles (sum of 2^po2)** | **6,291,456** |
+| Public execution budget (`MAX_NUM_CYCLES_PUBLIC_EXECUTION`) | 33,554,432 |
+| **Budget consumed** | **18.75 %** |
+
+The cost is dominated by in-guest secp256k1 ECDSA verification. At 18.75 % of the
+per-transaction budget, a single `gated_check` leaves comfortable headroom, but
+the budget would not absorb five such verifications in one transaction.
+
+> **Correction.** Earlier revisions of this document estimated `gated_check` at
+> roughly 51,500 cycles, extrapolated from per-step reasoning rather than
+> measured. That estimate was wrong by about two orders of magnitude: the real
+> cost is 5.67M user cycles. The estimate assumed a Risc0-accelerated ECDSA path
+> costing ~50k cycles; the deployed guest does not hit that path. The table above
+> supersedes it.
+
+### Reproducing the measurement
+
+```bash
+# 1. Resolve the instruction without submitting it
+spel --dry-run=json --idl idl/attestation_verifier_shallow.idl.json \
+     --program crates/verifier-program-spel/methods/guest-shallow/target/riscv32im-risc0-zkvm-elf/docker/attestation_verifier_shallow.bin \
+     -- gated_check --presenter Public/<pubkey> $(cat gated-check.args | tr '\n' ' ') > dryrun.json
+
+# 2. Replay the sequencer's execution and report its cycle cost
+cargo run --release -p attestation-cu-bench -- \
+  --elf crates/verifier-program-spel/methods/guest-shallow/target/riscv32im-risc0-zkvm-elf/docker/attestation_verifier_shallow.bin \
+  --tx dryrun.json
+```
+
+Add `--json` for machine-readable output.
 
 ## Deploy + submission costs (measured on public testnet)
 
@@ -71,5 +110,6 @@ The host process prints the `[prove-metrics]` line on stderr; capture, parse, re
 
 ## Limitations / caveats
 
-- The LEZ public testnet's `getTransaction` JSON-RPC returns the raw tx blob (base64) but doesn't expose a structured per-instruction CU count as a separate field. Per-instruction CU is therefore estimated from the in-guest cycle measurements above, not extracted from the sequencer.
-- The shallow verifier path (v3) is the cycle-accurate path benchmarked here. The deep verifier path (v2) would add the inner attestation circuit's 131,072 cycles via `env::verify` composition.
+- The LEZ public testnet's `getTransaction` JSON-RPC returns the raw tx blob (base64) but exposes no per-instruction CU field, and neither does the indexer RPC. The on-chain figure above is therefore obtained by replaying the sequencer's execution locally rather than by reading chain telemetry. It is the identical computation — same binary, same inputs, same executor, same session limit — but it is a faithful replay, not a value reported by the node.
+- The 131,072-cycle figure at the top of this document is the **off-chain prover** cost of generating an attestation proof. It is not an on-chain cost and the two should not be added together loosely.
+- The shallow verifier path (v3) is what is measured here, because it is what is deployed and confirmed. The deep verifier path (v2) declares a `ChainedCall`, but a LEZ **public** transaction resolves chained calls by re-executing the callee host-side (`lee/state_machine/src/program.rs:73-77`) rather than by verifying a proof, so no `env::verify` composition happens on that path and no combined figure is quoted for it.

@@ -1,0 +1,30 @@
+[package]
+name        = "attestation-cu-bench"
+version     = "0.1.0"
+edition     = "2021"
+license     = "MIT OR Apache-2.0"
+description = "Measures the real on-chain compute-unit cost of the LP-0005 verifier program by replaying the sequencer's own execution."
+publish     = false
+
+[dependencies]
+# The exact LEZ types the sequencer feeds a program guest, pinned to the tag the
+# public testnet runs. `host` brings in the constructors we need.
+lee_core = { git = "https://github.com/logos-blockchain/logos-execution-zone.git", tag = "v0.2.0", features = ["host"] }
+
+risc0-zkvm   = { workspace = true, features = ["client"] }
+risc0-binfmt = "3.0"
+
+anyhow     = "1"
+clap       = { version = "4", features = ["derive"] }
+hex        = "0.4"
+serde      = { version = "1", features = ["derive"] }
+serde_json = "1"
+ureq       = { version = "2", features = ["json"] }
+
+[dev-dependencies]
+attestation-core = { path = "../attestation-core" }
+sha2 = "0.10"
+
+[[bin]]
+name = "cu-bench"
+path = "src/main.rs"

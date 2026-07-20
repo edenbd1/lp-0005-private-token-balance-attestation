@@ -56,6 +56,20 @@ pub enum TransportError {
     Decode(String),
 }
 
+/// Serialise an envelope for the wire. Shared by every transport so a credential
+/// sent by one is readable by another.
+pub fn encode_envelope(envelope: &CredentialEnvelope) -> Result<Vec<u8>, TransportError> {
+    bincode::serde::encode_to_vec(envelope, bincode::config::standard())
+        .map_err(|e| TransportError::Encode(e.to_string()))
+}
+
+/// Inverse of [`encode_envelope`].
+pub fn decode_envelope(bytes: &[u8]) -> Result<CredentialEnvelope, TransportError> {
+    bincode::serde::decode_from_slice(bytes, bincode::config::standard())
+        .map(|(v, _)| v)
+        .map_err(|e| TransportError::Decode(e.to_string()))
+}
+
 /// Trait implemented by every concrete transport (real Logos Delivery, Qt-bridge
 /// subprocess, in-memory test bus, file-on-disk dev loop).
 #[async_trait::async_trait]
@@ -69,7 +83,12 @@ pub trait Transport: Send + Sync {
     async fn recv(&self, topic: &str) -> Result<Option<CredentialEnvelope>, TransportError>;
 }
 
+/// In-process bus. For unit tests only: it performs no network I/O, so it must
+/// not be presented as Logos Messaging transmission. Use [`waku_rest`] for that.
 pub mod inmem;
+
+/// Real Logos Messaging transport, over the Waku network Logos Delivery runs on.
+pub mod waku_rest;
 
 #[cfg(feature = "qt-bridge")]
 pub mod qt_bridge;

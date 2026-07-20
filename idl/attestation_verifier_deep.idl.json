@@ -1,0 +1,104 @@
+{
+  "version": "0.1.0",
+  "name": "attestation_verifier_deep",
+  "instructions": [
+    {
+      "name": "gated_check",
+      "accounts": [
+        {
+          "name": "gate_marker",
+          "writable": true,
+          "signer": false,
+          "init": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "arg",
+                "path": "nullifier"
+              }
+            ]
+          }
+        },
+        {
+          "name": "presenter",
+          "writable": false,
+          "signer": true,
+          "init": false
+        }
+      ],
+      "args": [
+        {
+          "name": "witness_words",
+          "type": {
+            "vec": "u32"
+          }
+        },
+        {
+          "name": "merkle_root",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "threshold",
+          "type": "u128"
+        },
+        {
+          "name": "context_id",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "presenter_pubkey",
+          "type": {
+            "vec": "u8"
+          }
+        },
+        {
+          "name": "nullifier",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "presenter_nonce",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "presenter_signature_der",
+          "type": {
+            "vec": "u8"
+          }
+        },
+        {
+          "name": "expected_context_id",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "minimum_threshold",
+          "type": "u128"
+        }
+      ]
+    }
+  ]
+}

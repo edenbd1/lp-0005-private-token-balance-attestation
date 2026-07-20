@@ -47,3 +47,94 @@ jobs:
             -p attestation-core \
             -p attestation-verifier-program \
             -p governance-gate
+
+  e2e:
+    name: End-to-end against a standalone LEZ sequencer
+    runs-on: ubuntu-latest
+    # Manual trigger only, for now. This job has not yet completed a run on a
+    # GitHub runner: the Risc0 toolchain install, the ~40-minute cold LEZ build
+    # and the `cargo install` from a git tag are all unproven in that
+    # environment. Wiring it to `push` before it is known-good would turn the
+    # default branch red on its first failure, and a green default branch is
+    # itself a prize criterion. Validate it with `workflow_dispatch`, then add
+    # `github.event_name == 'push'` here.
+    #
+    # The round trip it runs is proven locally: `scripts/e2e-local.sh` boots a
+    # standalone sequencer, deploys from an empty chain, generates a real Risc0
+    # proof and requires gated_check to confirm.
+    if: github.event_name == 'workflow_dispatch'
+    timeout-minutes: 90
+    env:
+      LEZ_TAG: v0.2.0
+      SPEL_TAG: v0.6.0
+      RISC0_DEV_MODE: 0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install the Risc0 toolchain
+        run: |
+          curl -L https://risczero.com/install | bash
+          echo "$HOME/.risc0/bin" >> "$GITHUB_PATH"
+          "$HOME/.risc0/bin/rzup" install rust
+          "$HOME/.risc0/bin/rzup" install r0vm 3.0.5
+
+      - name: Check out LEZ ${{ env.LEZ_TAG }}
+        uses: actions/checkout@v4
+        with:
+          repository: logos-blockchain/logos-execution-zone
+          ref: ${{ env.LEZ_TAG }}
+          path: .lez
+
+      # The sequencer and wallet are the slow part, and they only change when
+      # LEZ_TAG changes, so key the cache on the tag alone.
+      - name: Cache the LEZ build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            .lez/target
+          key: lez-${{ runner.os }}-${{ env.LEZ_TAG }}
+          restore-keys: lez-${{ runner.os }}-
+
+      - name: Build the standalone sequencer and the wallet
+        working-directory: .lez
+        run: |
+          cargo build --release --features standalone -p sequencer_service
+          cargo build --release -p wallet
+
+      - name: Install spel ${{ env.SPEL_TAG }}
+        run: cargo install --locked --git https://github.com/logos-co/spel --tag "$SPEL_TAG" spel-cli || \
+             cargo install --git https://github.com/logos-co/spel --tag "$SPEL_TAG" spel-cli
+
+      - name: Cache this project's build
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: cargo-e2e-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: cargo-e2e-${{ runner.os }}-
+
+      # Deploys the committed artifacts/programs/*.bin, generates a real Risc0
+      # proof with RISC0_DEV_MODE=0, and requires gated_check to confirm on
+      # chain. Exits non-zero on any failure.
+      - name: End-to-end round trip on a fresh chain
+        env:
+          SEQUENCER_BIN: ${{ github.workspace }}/.lez/target/release/sequencer_service
+          SEQUENCER_CFG: ${{ github.workspace }}/.lez/lez/sequencer/service/configs/debug/sequencer_config.json
+          WALLET_BIN: ${{ github.workspace }}/.lez/target/release/wallet
+          SPEL_BIN: spel
+        run: ./scripts/e2e-local.sh
+
+      # The CU measurement runs inside e2e-local.sh, against the same sequencer
+      # the transaction was submitted to and while it is still up. Measuring it
+      # here instead would read account state from a different chain than the one
+      # the dry-run was captured on.
+
+      - name: Upload the end-to-end artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-local-artifacts
+          path: artifacts/e2e-local/
+          if-no-files-found: ignore

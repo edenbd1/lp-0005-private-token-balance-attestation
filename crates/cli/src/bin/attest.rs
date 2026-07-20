@@ -7,7 +7,8 @@
 
 use anyhow::{Context, Result};
 use attestation_sdk::{
-    precompute_leaf, prove, prove_groth16, synthetic_merkle_path, PresenterKey, ProveRequest,
+    precompute_leaf, prove_checked, prove_groth16_checked, synthetic_merkle_path, PresenterKey,
+    ProveRequest,
 };
 use attestation_verifier_offchain::verify_credential;
 use clap::{Parser, Subcommand};
@@ -49,6 +50,22 @@ enum Cmd {
         /// Hex-encoded 32-byte nonce produced by the verifier.
         #[arg(long)]
         nonce: String,
+    },
+    /// Prover-side: sign an already-computed 32-byte digest with the presenter key.
+    /// Outputs the DER-encoded signature as hex on stdout.
+    ///
+    /// `sign-challenge` derives the digest from a credential's journal. The
+    /// privacy-preserving on-chain path has no such credential: the attestation is
+    /// proved inline by the LEZ program, and the digest is built from the witness
+    /// and statement directly (see `scripts/build-privacy-gated-check.py`). This
+    /// subcommand signs that digest.
+    SignDigest {
+        /// Hex-encoded 32-byte secp256k1 secret key.
+        #[arg(long)]
+        secret: String,
+        /// Hex-encoded 32-byte digest to sign.
+        #[arg(long)]
+        digest: String,
     },
     /// Generate an attestation credential.
     /// Uses synthesized account state — for demos. Real flow consumes a sequencer
@@ -181,9 +198,11 @@ fn main() -> Result<()> {
             );
             let t = Instant::now();
             let proof = if groth16 {
-                prove_groth16(req)?
+                // *_checked classifies failures into actionable messages instead of
+                // surfacing a raw risc0 error. See attestation_sdk::ProveError.
+                prove_groth16_checked(req).map_err(|e| anyhow::anyhow!("{e}"))?
             } else {
-                prove(req)?
+                prove_checked(req).map_err(|e| anyhow::anyhow!("{e}"))?
             };
             println!("proved in {:?}", t.elapsed());
 
@@ -231,6 +250,20 @@ fn main() -> Result<()> {
             let nonce_bytes = parse_nonce(&nonce)?;
             let signature = pk.sign(&nonce_bytes, &journal);
             println!("{}", hex::encode(signature));
+        }
+        Cmd::SignDigest { secret, digest } => {
+            let sk = hex::decode(secret.trim_start_matches("0x"))?;
+            let sk: [u8; 32] = sk
+                .as_slice()
+                .try_into()
+                .map_err(|_| anyhow::anyhow!("secret must be 32 bytes"))?;
+            let d = hex::decode(digest.trim_start_matches("0x"))?;
+            let d: [u8; 32] = d
+                .as_slice()
+                .try_into()
+                .map_err(|_| anyhow::anyhow!("digest must be 32 bytes"))?;
+            let pk = PresenterKey::from_bytes(&sk)?;
+            println!("{}", hex::encode(pk.sign_digest(&d)));
         }
         Cmd::GatedCheckArgs {
             credential,

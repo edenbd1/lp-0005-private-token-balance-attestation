@@ -107,9 +107,14 @@ jobs:
           cargo build --release --features standalone -p sequencer_service
           cargo build --release -p wallet
 
+      # The crate is named `spel`, not `spel-cli`; `spel-cli` is only the
+      # directory. Retry without --locked because the committed lockfile can
+      # disagree with the runner's rustc.
       - name: Install spel ${{ env.SPEL_TAG }}
-        run: cargo install --locked --git https://github.com/logos-co/spel --tag "$SPEL_TAG" spel-cli || \
-             cargo install --git https://github.com/logos-co/spel --tag "$SPEL_TAG" spel-cli
+        run: |
+          cargo install --locked --git https://github.com/logos-co/spel --tag "$SPEL_TAG" spel \
+            || cargo install --git https://github.com/logos-co/spel --tag "$SPEL_TAG" spel
+          spel --help >/dev/null 2>&1 || { echo "spel did not install"; exit 1; }
 
       - name: Cache this project's build
         uses: actions/cache@v4

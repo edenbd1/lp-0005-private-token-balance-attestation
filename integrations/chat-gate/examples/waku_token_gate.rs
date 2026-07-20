@@ -147,6 +147,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     println!("  gate demanding more than attested   {}", expect_err(&under));
 
+    // The honest closing note. This demo anchors its proof to a synthetic tree,
+    // because it is about the transport. A production gate must also check that
+    // the root the proof claims is one the chain actually holds, or the balance
+    // is prover-authored. Show that check running, and show it correctly
+    // refusing this demo's synthetic root.
+    println!("\n--- root freshness, the check a production gate must also run ---");
+    match check_root_freshness(&journal.merkle_root) {
+        Ok(true) => println!("  the attested root is the chain's current root"),
+        Ok(false) => println!(
+            "  REFUSED: this demo's synthetic root is not the chain's current root, which is\n\
+             \x20 correct. See docs/limitations.md; use SequencerClient::is_root_current in\n\
+             \x20 a real gate."
+        ),
+        Err(e) => println!("  skipped, could not reach the sequencer: {e}"),
+    }
+
     println!("\n===========================================================");
     println!("PASSED. A real Risc0 credential travelled over the Waku relay");
     println!("network between two independent nodes, was verified locally by");
@@ -226,4 +242,27 @@ fn demo_request(
     req.merkle_path = path;
     req.merkle_root = root;
     req
+}
+
+/// Ask the public testnet whether `merkle_root` is the root it currently holds.
+///
+/// `known_commitment` is any commitment known to be in the set; a real gate would
+/// use one it controls. This is the check that separates "the prover holds a key
+/// over an account they declared" from "the prover holds a balance on this chain".
+fn check_root_freshness(merkle_root: &[u8; 32]) -> Result<bool, Box<dyn std::error::Error>> {
+    use attestation_sequencer_client::SequencerClient;
+    // The private account funded on the public testnet on 2026-07-20.
+    const KNOWN_COMMITMENT: [u8; 32] = [
+        0x74, 0x09, 0xcd, 0x5c, 0xac, 0x88, 0xe3, 0x1f, 0xfd, 0xe8, 0x2a, 0x9e, 0x5d, 0x4a, 0x2a,
+        0x8f, 0xef, 0xdd, 0x89, 0xfa, 0xca, 0x05, 0x06, 0xb2, 0x32, 0x3d, 0xd8, 0x55, 0x5e, 0x3f,
+        0xd6, 0x68,
+    ];
+    // The sequencer client is reqwest-backed, so it needs a Tokio reactor.
+    // `block_on` from futures-lite drives the Waku transport fine, but panics
+    // here with "there is no reactor running".
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?;
+    let client = SequencerClient::public_testnet();
+    Ok(rt.block_on(client.is_root_current(merkle_root, &KNOWN_COMMITMENT))?)
 }

@@ -762,6 +762,7 @@ dependencies = [
  "attestation-core",
  "attestation-delivery-transport",
  "attestation-sdk",
+ "attestation-sequencer-client",
  "attestation-verifier-offchain",
  "attestation-verifier-program",
  "bincode 2.0.1",
@@ -773,6 +774,7 @@ dependencies = [
  "serde",
  "sha2",
  "thiserror 1.0.69",
+ "tokio",
 ]
 
 [[package]]

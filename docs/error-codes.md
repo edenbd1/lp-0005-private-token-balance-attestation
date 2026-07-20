@@ -2,7 +2,41 @@
 
 Deterministic, documented error codes for every invalid-proof scenario on both verification paths. This is the table evaluators expect (per LP-0005 "Reliability" success criterion).
 
-## On-chain (`attestation_verifier_program::GateError`)
+## Deployed on-chain programs (`3xxx`)
+
+These are the codes the programs actually deployed on the public testnet return.
+They are what an integrator sees from the chain, so read this table first; the
+`GateError` table further down belongs to the host-side reference
+implementation in `crates/verifier-program`, which is not what is deployed.
+
+Codes `3001`-`3006` are common to all three guests. `3007`-`3012` exist only in
+the deep variant, which is the one that verifies the proof on chain.
+
+| Code | Constant | When it fires | Mitigation by integrator |
+|---:|---|---|---|
+| `3001` | `E_THRESHOLD_TOO_LOW` | `threshold < minimum_threshold` | The presenter attested to a lower floor than the gate demands; ask them to re-prove against the higher N. |
+| `3004` | `E_CONTEXT_MISMATCH` | `context_id != expected_context_id` | A credential for another gate. Reject and surface a "wrong gate" message. |
+| `3005` | `E_BAD_SIGNATURE` | The presenter challenge signature is malformed or fails ECDSA verification under `presenter_pubkey` | Either the presenter does not hold the matching secret key (a forwarding attempt), or the challenge was tampered with. Reject. |
+| `3006` | `E_BAD_PUBKEY_LEN` | `presenter_pubkey` is not 33 bytes | Malformed credential; ask the prover to regenerate. |
+| `3007` | `E_BAD_WITNESS` | `witness_words` did not decode as `PrivateInputs` | Wire-format drift between prover and gate; suspect a version mismatch. |
+| `3008` | `E_NULLIFIER_MISMATCH` | The pinned `nullifier` is not the one the supplied witness yields | An attempt to prove one attestation while claiming another's marker. Reject. |
+| `3009` | `E_ANCHORED_BALANCE_TOO_LOW` | The attested account's on-chain balance is below `minimum_threshold` | The presenter genuinely does not hold the required balance. This is the check the witness cannot lie about, since the balance is read from anchored chain state rather than the witness. |
+| `3010` | `E_PRESENTER_NOT_ATTESTED` | `presenter.account_id` is not `derive_account_id(witness.npk, witness.identifier)` | The signer is not the account being attested to. Without this binding the balance in `3009` would belong to a different account than the one attested. |
+| `3011` | `E_PRESENTER_NOT_NATIVE` | `presenter.account.program_owner` is not the pinned `authenticated_transfer` program (ImageID `dcbbfebc…bc3f4a71`) | The balance field belongs to a different program, whose semantics the gate has not checked. Reject: "holds at least N" is only well defined once the denominating program is named. |
+| `3012` | `E_GATE_TAG_MISMATCH` | `gate_tag` is not `compute_gate_tag(nullifier, minimum_threshold, expected_context_id)` | A forged marker seed, i.e. an attempt to land a marker at an address that does not encode the policy actually enforced. Reject. |
+
+`3002` and `3003` are unallocated. Numbering is stable; new codes are appended.
+
+Constants are defined at
+`crates/verifier-program-spel/methods/guest-deep/src/bin/attestation_verifier_deep.rs:82-91`.
+
+A program error surfaces from the sequencer as a failed transaction rather than
+as a decodable numeric field, so the code is a diagnostic for whoever built the
+call, not a value an integrator can branch on from public data. What an
+integrator branches on is the marker PDA: present and owned by the verifier means
+the gate passed at exactly the policy folded into its address.
+
+## Reference host-side implementation (`attestation_verifier_program::GateError`)
 
 | Code | Variant | When it fires | Mitigation by integrator |
 |---:|---|---|---|

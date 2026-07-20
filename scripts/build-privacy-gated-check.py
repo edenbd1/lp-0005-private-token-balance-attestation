@@ -27,6 +27,7 @@ import sys
 NULLIFIER_PREFIX = b"/lp-0005/v0.1/Nullifier/" + b"\0" * 8
 PRIVATE_ACCOUNT_ID_PREFIX = b"/LEE/v0.3/AccountId/Private/" + b"\0" * 4
 CHALLENGE_TAG = b"/lp-0005/v0.1/PresenterChallenge/"
+GATE_TAG_PREFIX = b"/lp-0005/v0.1/GateTag/" + b"\0" * 10
 
 
 def derive_account_id(npk: bytes, identifier: int) -> bytes:
@@ -47,6 +48,22 @@ def compute_nullifier(pubkey: bytes, context_id: bytes, account_id: bytes) -> by
     h.update(pubkey)
     h.update(context_id)
     h.update(account_id)
+    return h.digest()
+
+
+def compute_gate_tag(nullifier: bytes, minimum_threshold: int, expected_context_id: bytes) -> bytes:
+    """The marker PDA seed, mirroring `attestation_core::compute_gate_tag`.
+
+    Folding the floor and the context into the seed is what makes the marker's
+    address encode the policy that was enforced, rather than merely recording
+    that some gate ran. The guest re-derives this and rejects a mismatch, so a
+    caller cannot land a marker at an address that overstates what it met.
+    """
+    h = hashlib.sha256()
+    h.update(GATE_TAG_PREFIX)
+    h.update(nullifier)
+    h.update(minimum_threshold.to_bytes(16, "little"))
+    h.update(expected_context_id)
     return h.digest()
 
 
@@ -114,6 +131,13 @@ def main():
     ap.add_argument("--presenter", required=True)
     ap.add_argument("--context", required=True)
     ap.add_argument("--threshold", type=int, required=True)
+    ap.add_argument(
+        "--minimum-threshold",
+        type=int,
+        default=None,
+        help="the floor the gate enforces; defaults to --threshold. Set it lower "
+             "than --threshold to exercise the gate's own policy check.",
+    )
     ap.add_argument("--nonce", default=None, help="hex challenge nonce; random if omitted")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
@@ -125,6 +149,10 @@ def main():
     account_id = derive_account_id(bytes(w["npk"]), w["identifier"])
     context_id = context_id_from(args.context)
     nullifier = compute_nullifier(pubkey, context_id, account_id)
+    minimum_threshold = (
+        args.threshold if args.minimum_threshold is None else args.minimum_threshold
+    )
+    gate_tag = compute_gate_tag(nullifier, minimum_threshold, context_id)
 
     nonce = bytes.fromhex(args.nonce) if args.nonce else hashlib.sha256(
         b"lp-0005-challenge" + nullifier
@@ -150,13 +178,16 @@ def main():
         # Vec<u8> args take comma-separated decimal bytes, not hex.
         f"--presenter-signature-der '{','.join(str(b) for b in bytes.fromhex(sig_der))}'",
         f"--expected-context-id {hexarg(context_id)}",
-        f"--minimum-threshold {args.threshold}",
+        f"--minimum-threshold {minimum_threshold}",
+        f"--gate-tag {hexarg(gate_tag)}",
     ]
     open(args.out, "w").write("\n".join(lines) + "\n")
 
     print(f"account_id  {account_id.hex()}")
     print(f"context_id  {context_id.hex()}")
-    print(f"nullifier   {nullifier.hex()}   (also the gate_marker PDA seed)")
+    print(f"nullifier   {nullifier.hex()}")
+    print(f"gate_tag    {gate_tag.hex()}   (the gate_marker PDA seed)")
+    print(f"floor       {minimum_threshold}   (attested threshold {args.threshold})")
     print(f"witness     {len(words)} u32 words")
     print(f"wrote       {args.out}")
 

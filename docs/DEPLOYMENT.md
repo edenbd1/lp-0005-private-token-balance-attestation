@@ -277,9 +277,19 @@ Both verifiers are preserved on chain as historical evidence of the iteration.
 
 ### Full transaction record (signer = `CbgR6tj5kWx5oziiFptM7jMvrQeYY3Mzaao6ciuhSr2r`)
 
-All are live on the current chain and independently verifiable. Rows 5 to 7 are the
-deep path, where the zero-knowledge proof is genuinely verified on chain; run
-`./scripts/verify-onchain-proof.sh` to check it from public data alone.
+All are live on the current chain and independently verifiable. Rows 5 and 8 to 9
+are the current deep path, where the zero-knowledge proof is genuinely verified on
+chain; run `./scripts/verify-onchain-proof.sh` to check it from public data alone.
+
+> **Rows 6 and 7 are superseded and must not be cited.** An adversarial review of
+> that verifier (ImageID `6d4c9453…97babc`) found the gate could be passed by an
+> account holding nothing: the signing account was never bound to the account the
+> witness attested to, the owning program was never pinned, and the marker PDA was
+> seeded by the nullifier alone, so a caller pinning `minimum_threshold = 0` left a
+> marker indistinguishable from one earned against a real floor. Row 8 deploys the
+> verifier with those three bindings added (errors `3010`, `3011`, `3012`); see
+> `docs/limitations.md` and `crates/cu-bench/tests/deep_gate_rejects.rs`, which
+> exercises each rejection against the deployed binary.
 
 | # | Instruction | Explorer link |
 |---|---|---|
@@ -288,8 +298,10 @@ deep path, where the zero-knowledge proof is genuinely verified on chain; run
 | 3 | **`wallet deploy-program`** — verifier program v3 (SPEL, flat-arg ABI, shallow gate — confirmable today) | [`a0ec45bb…d341c5ca`](https://explorer.testnet.lez.logos.co/transaction/a0ec45bb7817eea672bfe1cac4663969557da852a031a7a46c571193d341c5ca) |
 | 4 | **`spel gated_check`** — ECDSA-signed gate call against the v3 shallow verifier (no proof verification) | [`fd9869f7…eafb306d`](https://explorer.testnet.lez.logos.co/transaction/fd9869f7282ae6b5fe5c29ba31854ea68c032780207bfb6f1fba5298eafb306d) |
 | 5 | **`wallet deploy-program`** — LEZ-native attestation program (v4 path) | `674aa03a8a51a2eba660ec2ab136a1b6c9ca17817c7bb3160b68904375726652` |
-| 6 | **`wallet deploy-program`** — deep verifier (v4 path) | `4e2ac5c3f07cb719bc80084837a5c86de61e0efa3c44975e88605c23e59271a9` |
-| 7 | ✅ **`spel gated_check`** — privacy-preserving, **proof VERIFIED ON CHAIN** | `b9488de014c7bda54544011b3cf1e7f54562e90c5451dc402316507bd10d36b2` |
+| 6 | ~~**`wallet deploy-program`** — deep verifier v4~~ **superseded, unbound gate** | `4e2ac5c3f07cb719bc80084837a5c86de61e0efa3c44975e88605c23e59271a9` |
+| 7 | ~~**`spel gated_check`** — privacy-preserving against v4~~ **superseded** | `b9488de014c7bda54544011b3cf1e7f54562e90c5451dc402316507bd10d36b2` |
+| 8 | **`wallet deploy-program`** — deep verifier v5, presenter/owner/policy bound (ImageID `1047297a…8261b27c`) | `7a4e46cfcab3a956a159d3c82a781222bdf093faa7ef8d42723f1a95e06eec0d` |
+| 9 | ✅ **`spel gated_check`** — privacy-preserving against v5, **proof verified on chain, policy bound into the marker** | _pending confirmation_ |
 
 Account state on the explorer:
 

@@ -64,7 +64,14 @@ jobs:
     # three programs deployed from an empty chain, a real Risc0 proof generated in
     # 56 s under RISC0_DEV_MODE=0, gated_check confirmed on chain
     # (5bb8dd547e2280834ea0c84103a1d7568c97c4366f8b519f12a4d740357fc108), and its
-    # on-chain cost measured at 5,664,960 user cycles, 18.75% of the budget.
+    # on-chain cost measured at 5,664,960 user cycles.
+    #
+    # That is the fresh-chain figure and differs slightly from the 5,673,563 in
+    # docs/benchmarks/cu-budget.md, which was measured against the public
+    # testnet's account pre-state. Both are real measurements of the same guest on
+    # different chain states. The 18.75% budget figure quoted in that document is
+    # proving cycles over the budget (6,291,456 / 33,554,432), not user cycles;
+    # the two must not be conflated.
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     timeout-minutes: 90
     env:

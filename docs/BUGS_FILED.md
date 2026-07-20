@@ -81,6 +81,24 @@ with a new recovery phrase rather than reporting that it could not find the
 configured one. The faucet moved from `pinata claim` to `vault claim` in the same
 release.
 
+## `spel` and `wallet` disagree on the wallet home variable
+
+`wallet` v0.2.0 reads `LEE_WALLET_HOME_DIR`; `spel` 0.6.0 still reads
+`NSSA_WALLET_HOME_DIR`. With only the new name exported, `spel` generates the
+whole proof, prints the fully serialised instruction, and *then* fails at
+submission:
+
+```
+❌ Failed to initialize wallet: Failed to read persistent storage at ~/.nssa/wallet/storage.json
+```
+
+The cost is the worst kind: the failure lands after the expensive step, so a
+privacy-preserving submission burns its full proving time before reporting a
+configuration problem it could have caught at startup.
+
+**Workaround:** export both names. Validating the wallet path before proving,
+rather than after, would turn a twenty-minute failure into an instant one.
+
 ## `nwaku` fails to start without an explicit NAT setting
 
 Running `wakuorg/nwaku:v0.38.0` with `--discv5-discovery=false` exits with

@@ -14,7 +14,7 @@
             "seeds": [
               {
                 "kind": "arg",
-                "path": "nullifier"
+                "path": "gate_tag"
               }
             ]
           }
@@ -97,6 +97,15 @@
         {
           "name": "minimum_threshold",
           "type": "u128"
+        },
+        {
+          "name": "gate_tag",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
         }
       ]
     }

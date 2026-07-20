@@ -405,6 +405,7 @@ dependencies = [
  "attestation-core",
  "clap",
  "hex",
+ "k256",
  "lee_core",
  "risc0-binfmt",
  "risc0-zkvm",

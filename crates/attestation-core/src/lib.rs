@@ -32,6 +32,14 @@ pub const NULLIFIER_PREFIX: [u8; 32] = [
     b'l', b'l', b'i', b'f', b'i', b'e', b'r', b'/', 0, 0, 0, 0, 0, 0, 0, 0,
 ];
 
+/// 32-byte domain separator for LP-0005 gate marker seeds. Local to this
+/// primitive, not part of LEZ. Distinct from `NULLIFIER_PREFIX` so that a gate
+/// tag can never collide with a nullifier.
+pub const GATE_TAG_PREFIX: [u8; 32] = [
+    b'/', b'l', b'p', b'-', b'0', b'0', b'0', b'5', b'/', b'v', b'0', b'.', b'1', b'/', b'G', b'a',
+    b't', b'e', b'T', b'a', b'g', b'/', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+];
+
 /// Inputs the prover reveals neither to the verifier nor to the journal.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PrivateInputs {
@@ -151,6 +159,36 @@ pub fn compute_nullifier(
     h.update(presenter_pubkey);
     h.update(context_id);
     h.update(account_id);
+    h.finalize().into()
+}
+
+/// The seed of the on-chain gate marker PDA.
+///
+/// A privacy-preserving transaction publishes neither `program_id` nor
+/// `instruction_data`, so the marker account is the only public trace the gate
+/// leaves. Seeding it by the nullifier alone would record *that* some gate ran,
+/// not *what it enforced*: an attacker pinning `minimum_threshold = 0` would
+/// produce a marker indistinguishable from one earned against a real floor.
+///
+/// Committing the enforced floor and context into the seed fixes that. The PDA
+/// address itself now encodes the policy, so an integrator gating on
+/// "context C, at least N" computes the one address that can satisfy them and
+/// checks it exists and is owned by the verifier. A marker earned at a lower
+/// floor lives at a different address and cannot be substituted.
+///
+/// `SHA256(GATE_TAG_PREFIX || nullifier || minimum_threshold_LE || expected_context_id)`
+#[must_use]
+pub fn compute_gate_tag(
+    nullifier: &[u8; 32],
+    minimum_threshold: u128,
+    expected_context_id: &[u8; 32],
+) -> [u8; 32] {
+    use sha2::{Digest, Sha256};
+    let mut h = Sha256::new();
+    h.update(GATE_TAG_PREFIX);
+    h.update(nullifier);
+    h.update(minimum_threshold.to_le_bytes());
+    h.update(expected_context_id);
     h.finalize().into()
 }
 

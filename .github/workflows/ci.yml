@@ -57,18 +57,15 @@ jobs:
   e2e:
     name: End-to-end against a standalone LEZ sequencer
     runs-on: ubuntu-latest
-    # Manual trigger only, for now. This job has not yet completed a run on a
-    # GitHub runner: the Risc0 toolchain install, the ~40-minute cold LEZ build
-    # and the `cargo install` from a git tag are all unproven in that
-    # environment. Wiring it to `push` before it is known-good would turn the
-    # default branch red on its first failure, and a green default branch is
-    # itself a prize criterion. Validate it with `workflow_dispatch`, then add
-    # `github.event_name == 'push'` here.
+    # Runs on pushes to the default branch and on demand. Kept off pull_request
+    # because a cold LEZ build is ~25 minutes and the host job already covers PRs.
     #
-    # The round trip it runs is proven locally: `scripts/e2e-local.sh` boots a
-    # standalone sequencer, deploys from an empty chain, generates a real Risc0
-    # proof and requires gated_check to confirm.
-    if: github.event_name == 'workflow_dispatch'
+    # Validated on a GitHub runner in run 29737401076: standalone sequencer booted,
+    # three programs deployed from an empty chain, a real Risc0 proof generated in
+    # 56 s under RISC0_DEV_MODE=0, gated_check confirmed on chain
+    # (5bb8dd547e2280834ea0c84103a1d7568c97c4366f8b519f12a4d740357fc108), and its
+    # on-chain cost measured at 5,664,960 user cycles, 18.75% of the budget.
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     timeout-minutes: 90
     env:
       LEZ_TAG: v0.2.0

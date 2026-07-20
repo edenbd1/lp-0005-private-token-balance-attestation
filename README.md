@@ -31,8 +31,8 @@ Full end-to-end walkthrough, with the `RISC0_DEV_MODE=0` banner visible in the t
 | 3 | **`wallet deploy-program`** — verifier program v3 (SPEL, flat-arg ABI, shallow gate, ImageID `b32c6662…df85952a`) | [`a0ec45bb…d341c5ca`](https://explorer.testnet.lez.logos.co/transaction/a0ec45bb7817eea672bfe1cac4663969557da852a031a7a46c571193d341c5ca) |
 | 4 | **`spel gated_check`** — ECDSA-signed gate call, v3 shallow verifier accepts (host-side checks only, no proof verification) | [`fd9869f7…eafb306d`](https://explorer.testnet.lez.logos.co/transaction/fd9869f7282ae6b5fe5c29ba31854ea68c032780207bfb6f1fba5298eafb306d) |
 | 5 | **`wallet deploy-program`** — LEZ-native attestation program (ImageID `9b6be465…6c27da`) | `674aa03a8a51a2eba660ec2ab136a1b6c9ca17817c7bb3160b68904375726652` |
-| 6 | **`wallet deploy-program`** — deep verifier (ImageID `6d4c9453…97babc`) | `4e2ac5c3f07cb719bc80084837a5c86de61e0efa3c44975e88605c23e59271a9` |
-| 7 | ✅ **`spel gated_check`, privacy-preserving — the zero-knowledge proof is VERIFIED ON CHAIN** | `b9488de014c7bda54544011b3cf1e7f54562e90c5451dc402316507bd10d36b2` |
+| 6 | **`wallet deploy-program`** — deep verifier (ImageID `1047297a…8261b27c`) | `7a4e46cfcab3a956a159d3c82a781222bdf093faa7ef8d42723f1a95e06eec0d` |
+| 7 | ✅ **`spel gated_check`, privacy-preserving — the proof is verified on chain and the enforced policy is bound into the marker** | `e8ed66c79373ebbea77a254db866793d68fd1b71357731ed93d70bade7bbb4ab` |
 
 ### The on-chain path, and how to check it yourself
 
@@ -57,9 +57,21 @@ Verify it from public data alone, with only `curl`, `python3` and `jq`:
 
 It checks that both programs are deployed, that the `gated_check` transaction is
 of type `PrivacyPreserving` (borsh variant byte 1, 230,186 bytes of receipt), and
-that the marker PDA `7R4Kq6gKREoefWDq9LdqueDpVGWeUPv1Ce15xGms6SHH` — derived from
-the verifier's ImageID and the attestation nullifier — is owned by the verifier
-program. That account could only be claimed by an accepted transaction.
+that the marker PDA `HBFLDbG6r1DJFUKaA7acCKSbiNmYs2UG6UAnLSgkN2ii` — derived from
+the verifier's ImageID and the enforced policy — is owned by the verifier program.
+That account could only be claimed by an accepted transaction.
+
+**What the proof does and does not establish.** The zero-knowledge proof is
+genuinely verified on chain by composition, but its statement is relative to a
+Merkle root the prover chooses, so it is not on its own a statement about a real
+balance. The gate is meaningful because the chain binds four things the caller
+cannot forge: the signer must be the account the witness attests to, its owning
+program is pinned so the balance is denominated, that balance is read from
+anchored pre_state rather than the witness, and the enforced floor and context are
+folded into the marker's address. Re-derive the PDA at a lower floor and it moves
+to an unclaimed slot. See [`docs/limitations.md`](docs/limitations.md), and
+`crates/cu-bench/tests/deep_gate_rejects.rs`, which runs the deployed binary
+through the sequencer's execution path and requires each rejection to fire.
 
 Two behaviours confirmed against the deployed programs. A witness whose balance is
 below the attested threshold **cannot produce a transaction at all**

@@ -44,10 +44,17 @@
 #      expected_context_id) and rejects any mismatch, and the PDA address is
 #      derived from that tag. So a marker found at the address computed below
 #      could only have been created by an execution that enforced EXACTLY this
-#      floor in EXACTLY this context. Change FLOOR to 0 and re-run: the address
-#      moves and no account is there. That is the property that was missing when
-#      the seed was the bare nullifier, which recorded that a gate ran without
-#      recording what it demanded.
+#      floor in EXACTLY this context.
+#
+#      Check it yourself: set FLOOR to 3999 or 0 and re-run. The address moves,
+#      and step 5 fails because the account there carries the default
+#      program_owner (all zeros) rather than the verifier's, i.e. nobody ever
+#      claimed it. Note that getAccount answers with a zeroed account rather than
+#      an error for an address never written to, so it is the OWNER that
+#      distinguishes a real marker from an empty slot, not the account's
+#      existence. That is the property that was missing when the seed was the
+#      bare nullifier, which recorded that a gate ran without recording what it
+#      demanded.
 #
 #   5. That PDA is owned by the verifier program. program_owner cannot be forged:
 #      validate_execution rejects any program_owner change in a program's output
@@ -64,7 +71,7 @@ RPC="${SEQUENCER_URL:-https://testnet.lez.logos.co}"
 
 ATTESTATION_BIN=artifacts/programs/attestation_lez.bin
 VERIFIER_BIN=artifacts/programs/attestation_verifier_deep.bin
-GATED_CHECK_TX=b9488de014c7bda54544011b3cf1e7f54562e90c5451dc402316507bd10d36b2
+GATED_CHECK_TX=e8ed66c79373ebbea77a254db866793d68fd1b71357731ed93d70bade7bbb4ab
 
 # The policy that transaction enforced, and the attestation nullifier it spent.
 #
@@ -93,12 +100,21 @@ print(hashlib.sha256(struct.pack('<I',len(b))+b).hexdigest())" "$1"
 }
 
 # ImageID of a deployed binary, as the sequencer computes it.
+#
+# spel 0.6.0 reads an ELF with `program-id`; older builds used `inspect`, which
+# in 0.6.0 means account inspection and refuses without an --idl. Try both so the
+# ImageID is derived from the binary rather than falling back to a recorded
+# constant, which would make step 4 an assertion instead of a derivation.
 image_id() {
   python3 -c "
 import sys,subprocess,re
-out=subprocess.run(['spel','inspect',sys.argv[1]],capture_output=True,text=True).stdout
-m=re.search(r'ImageID \(hex bytes\):\s*([0-9a-f]{64})',out)
-print(m.group(1) if m else '')" "$1" 2>/dev/null
+for sub in ('program-id','inspect'):
+    out=subprocess.run(['spel',sub,sys.argv[1]],capture_output=True,text=True).stdout
+    m=re.search(r'ImageID \(hex bytes\):\s*([0-9a-f]{64})',out)
+    if m:
+        print(m.group(1)); break
+else:
+    print('')" "$1" 2>/dev/null
 }
 
 echo "LP-0005 on-chain proof verification"

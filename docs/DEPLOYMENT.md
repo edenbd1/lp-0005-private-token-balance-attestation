@@ -183,18 +183,23 @@ ImageID (32B):    9b6be465fed863f89450ecf9e8ef3d2183aab83647358519230c12c0746c27
 Binary:           artifacts/programs/attestation_lez.bin (298,956 bytes)
 Deploy tx:        674aa03a8a51a2eba660ec2ab136a1b6c9ca17817c7bb3160b68904375726652
 
-Verifier program (deep gate)
+Verifier program (deep gate, v5 — presenter, denomination and policy bound)
 Source:           crates/verifier-program-spel/methods/guest-deep/src/bin/attestation_verifier_deep.rs
-ImageID (32B):    6d4c9453f43010552bce6c0663a3d2a940397c05ccaf3dca8b3b04231797babc
-Binary:           artifacts/programs/attestation_verifier_deep.bin
-Deploy tx:        4e2ac5c3f07cb719bc80084837a5c86de61e0efa3c44975e88605c23e59271a9
+ImageID (32B):    1047297a1fdd686d82435cd858c2d8acb86b20a74d5f779a8d9bcd9f8261b27c
+Binary:           artifacts/programs/attestation_verifier_deep.bin (507,040 bytes)
+Deploy tx:        7a4e46cfcab3a956a159d3c82a781222bdf093faa7ef8d42723f1a95e06eec0d
 
 Confirmed gated_check (privacy-preserving)
-Tx hash:          b9488de014c7bda54544011b3cf1e7f54562e90c5451dc402316507bd10d36b2
+Tx hash:          e8ed66c79373ebbea77a254db866793d68fd1b71357731ed93d70bade7bbb4ab
 Transaction type: PrivacyPreserving (borsh variant byte 1)
 On-chain size:    230,186 bytes — a real receipt, not a bare instruction
-Marker PDA:       7R4Kq6gKREoefWDq9LdqueDpVGWeUPv1Ce15xGms6SHH
+Enforced policy:  floor 4000, context 77023f48… (both folded into the marker seed)
+Marker PDA:       HBFLDbG6r1DJFUKaA7acCKSbiNmYs2UG6UAnLSgkN2ii
                   owned by attestation_verifier_deep
+
+Superseded (do not cite): ImageID 6d4c9453…97babc, deploy tx 4e2ac5c3…, gated_check
+b9488de0…. That gate could be passed by an account holding nothing; see the
+warning above the transaction record and docs/limitations.md.
 ```
 
 **Verify it yourself**, with only `curl`, `python3` and `jq`, trusting nothing in
@@ -204,23 +209,38 @@ this repository:
 ./scripts/verify-onchain-proof.sh
 ```
 
-**The balance is anchored, not asserted.** `gated_check` reads the threshold check
-against `presenter.account.balance`, taken from the pre_state rather than the
-caller-supplied witness. On the privacy path LEZ computes that account's
-commitment from its exact state and folds the caller's membership proof into a
-`CommitmentSetDigest` (`privacy_preserving_circuit/src/output.rs:307-315`) that
-the sequencer requires to be in `root_history` (`state.rs:302-306`). A fabricated
-membership proof yields a digest that is not a historical root and the
-transaction is rejected. Verified both ways on a live chain: a witness claiming
-1,000,000 against an account holding 3,000 fails with `Program error 3009: the
-presenter account's on-chain balance is below the gate's minimum`, while a
-legitimate witness confirms.
+**The balance is anchored, not asserted — but that took four bindings, not one.**
+`gated_check` checks the floor against `presenter.account.balance`, taken from the
+pre_state rather than the caller-supplied witness. On the privacy path LEZ
+computes that account's commitment from its exact state and folds the caller's
+membership proof into a `CommitmentSetDigest`
+(`privacy_preserving_circuit/src/output.rs:307-315`) that the sequencer requires
+to be in `root_history` (`state.rs:302-306`), so a fabricated membership proof is
+rejected.
 
-**The on-chain trace.** A privacy transaction publishes no program id, so the
-instruction claims a PDA seeded by the attestation nullifier. Anyone can
-recompute it from the verifier's ImageID plus the nullifier and see that the
-verifier program owns it. That account could only be claimed by an accepted
-transaction, and acceptance required the sequencer to verify the proof.
+That alone is not enough, and an earlier revision of this document claimed it was.
+The anchored balance means "at least N" only once the signer is bound to the
+account the witness attests to (`3010`), the owning program is pinned so the
+number is denominated (`3011`), and the enforced floor and context are folded into
+the marker seed so the public artifact records what was demanded (`3012`).
+Without the first, the balance checked belongs to a different account than the one
+attested. Without the third, a caller pinning `minimum_threshold = 0` leaves a
+marker indistinguishable from one earned against a real floor.
+
+`crates/cu-bench/tests/deep_gate_rejects.rs` runs the deployed binary through the
+sequencer's own execution path and requires each of `3009`/`3010`/`3011`/`3012` to
+fire on the corresponding forged input, with the honest call accepted as the
+control.
+
+**The on-chain trace, and what it proves.** A privacy transaction publishes no
+program id, so the instruction claims a PDA seeded by
+`compute_gate_tag(nullifier, minimum_threshold, expected_context_id)`. An
+integrator demanding "context C, at least N" computes the single address that can
+satisfy them and checks it is owned by the verifier. That account could only be
+claimed by an accepted transaction, acceptance required the sequencer to verify
+the proof, and the address itself encodes the policy that was enforced. Recompute
+it at a lower floor and the address moves to an unclaimed slot carrying the
+default owner.
 
 **Evidence that the composition is real, not a signature check in disguise.**
 Submitting a witness whose balance is below the attested threshold fails at
@@ -301,7 +321,7 @@ chain; run `./scripts/verify-onchain-proof.sh` to check it from public data alon
 | 6 | ~~**`wallet deploy-program`** — deep verifier v4~~ **superseded, unbound gate** | `4e2ac5c3f07cb719bc80084837a5c86de61e0efa3c44975e88605c23e59271a9` |
 | 7 | ~~**`spel gated_check`** — privacy-preserving against v4~~ **superseded** | `b9488de014c7bda54544011b3cf1e7f54562e90c5451dc402316507bd10d36b2` |
 | 8 | **`wallet deploy-program`** — deep verifier v5, presenter/owner/policy bound (ImageID `1047297a…8261b27c`) | `7a4e46cfcab3a956a159d3c82a781222bdf093faa7ef8d42723f1a95e06eec0d` |
-| 9 | ✅ **`spel gated_check`** — privacy-preserving against v5, **proof verified on chain, policy bound into the marker** | _pending confirmation_ |
+| 9 | ✅ **`spel gated_check`** — privacy-preserving against v5, **proof verified on chain, policy bound into the marker** | `e8ed66c79373ebbea77a254db866793d68fd1b71357731ed93d70bade7bbb4ab` |
 
 Account state on the explorer:
 

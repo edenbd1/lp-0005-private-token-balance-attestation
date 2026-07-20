@@ -145,6 +145,18 @@ jobs:
           SPEL_BIN: spel
         run: ./scripts/e2e-local.sh
 
+      # e2e-local.sh exercises the SHALLOW gate end to end on a fresh chain. The
+      # deep gate's semantics are covered here instead: these tests run the
+      # deployed deep binary through the sequencer's own execution path and
+      # require each rejection to fire on the corresponding forged input, with
+      # the honest call accepted as the control. They do not prove, which is why
+      # they take a second rather than twenty minutes, and they need the risc0
+      # toolchain this job already installs.
+      - name: The deep gate rejects what it must
+        run: |
+          cargo test --release -p attestation-cu-bench --test deep_gate_rejects
+          cargo test --release -p attestation-core --test gate_tag
+
       # The CU measurement runs inside e2e-local.sh, against the same sequencer
       # the transaction was submitted to and while it is still up. Measuring it
       # here instead would read account state from a different chain than the one

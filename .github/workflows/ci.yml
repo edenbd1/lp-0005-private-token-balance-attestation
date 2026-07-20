@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Lets the e2e job be run on demand. It is gated to this trigger until it has
+  # completed a run on a GitHub runner; see the comment on that job.
+  workflow_dispatch:
 
 # Cancel older runs on the same branch when a new commit lands. Avoids the email
 # flood that happens when many commits arrive in rapid succession.

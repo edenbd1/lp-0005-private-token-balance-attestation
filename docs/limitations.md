@@ -50,10 +50,23 @@ rather than from the witness, and:
    and the guest rejects a seed that does not match (error `3012`), so the
    marker's *address* encodes the policy.
 
-Verified both ways on a live chain: a witness claiming 1,000,000 against an
-account really holding 4,000 fails with error `3009`, while a legitimate witness
-confirms. Re-using a stale account state fails too, because its commitment has
-been nullified.
+Verified both ways. The accepting direction is on the public testnet and anyone
+can check it: `gated_check` `e8ed66c7…e7bbb4ab`, marker
+`HBFLDbG6r1DJFUKaA7acCKSbiNmYs2UG6UAnLSgkN2ii`, via
+`./scripts/verify-onchain-proof.sh`.
+
+The rejecting direction cannot be shown by a transaction hash, because a
+transaction that fails never lands and so leaves no trace to link to. An earlier
+revision of this file cited it as if it had, which was unverifiable as written.
+It is instead reproducible on demand, against the same deployed bytecode:
+
+```bash
+cargo test -p attestation-cu-bench --test deep_gate_rejects
+```
+
+Each of `3009`/`3010`/`3011`/`3012` is required to fire on its corresponding
+forged input, with the honest call accepted as the control. Re-using a stale
+account state fails too, because its commitment has been nullified.
 
 **What this still does not give you.** The zero-knowledge proof is genuinely
 verified on chain by composition, but the balance guarantee comes from the
@@ -116,6 +129,29 @@ The nullifier is a function of `(presenter_pubkey, context_id, account_id)`. Con
 - The same account, presented to the same gate with the same presenter key, produces the same nullifier — so single-use semantics are natural.
 - Two different presentations (different pubkeys) on the same gate from the same underlying account produce different nullifiers. The gate cannot link them. If linkability is *required* (e.g. anti-Sybil), the gate must constrain `presenter_pubkey` (e.g. via an allow-list).
 - The nullifier carries no information about `account_id` beyond what `SHA256` allows.
+
+**The on-chain marker is a bearer credential, and its replay guard is narrower
+than it looks.** Claiming the marker PDA requires it to be uninitialized, so a
+given `(nullifier, floor, context)` can be gated exactly once. The guest header in
+`attestation_verifier_deep.rs` states it that way and should be read with this
+paragraph: because `presenter_pubkey` is unconstrained and the gate never debits
+the account, a single account holding N can mint an **unbounded** number of
+distinct markers at the same floor and context, simply by rolling a fresh
+secp256k1 key for each. The uniqueness is per-key, not per-account.
+
+That is fine for gating an action on "someone here holds N". It is *not* enough
+for one-person-one-vote: `governance-gate`'s `used_nullifiers` set assumes an
+account cannot vote twice, and it can. A Sybil-resistant integration must
+constrain `presenter_pubkey`, for example against an allow-list or an identity
+registry.
+
+**The balance is read once, and the marker never expires.** The gate checks the
+anchored balance at the moment the transaction executes. A balance that is
+borrowed, or funded and immediately withdrawn, yields a marker that stays valid
+and owned by the verifier forever. Nothing on chain re-checks it. An integrator
+who needs a *current* balance rather than a *past* one must either re-gate
+periodically with a fresh context, or treat the marker as evidence about a point
+in time rather than a standing property.
 
 ## Compute budget on LEZ
 

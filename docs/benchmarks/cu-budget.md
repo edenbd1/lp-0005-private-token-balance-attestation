@@ -112,4 +112,19 @@ The host process prints the `[prove-metrics]` line on stderr; capture, parse, re
 
 - The LEZ public testnet's `getTransaction` JSON-RPC returns the raw tx blob (base64) but exposes no per-instruction CU field, and neither does the indexer RPC. The on-chain figure above is therefore obtained by replaying the sequencer's execution locally rather than by reading chain telemetry. It is the identical computation — same binary, same inputs, same executor, same session limit — but it is a faithful replay, not a value reported by the node.
 - The 131,072-cycle figure at the top of this document is the **off-chain prover** cost of generating an attestation proof. It is not an on-chain cost and the two should not be added together loosely.
-- The shallow verifier path (v3) is what is measured here, because it is what is deployed and confirmed. The deep verifier path (v2) declares a `ChainedCall`, but a LEZ **public** transaction resolves chained calls by re-executing the callee host-side (`lee/state_machine/src/program.rs:73-77`) rather than by verifying a proof, so no `env::verify` composition happens on that path and no combined figure is quoted for it.
+- The table above measures the **shallow** verifier (v3). The **deep** gate is now deployed and confirmed on the privacy path, so it is measured too. An earlier revision of this document declined to quote a deep figure on the grounds that a public transaction re-executes chained calls host-side; that rationale went stale the moment the deep gate confirmed on the privacy path, and the omission is corrected here.
+
+  | Metric | Deep gate `gated_check` |
+  |---|---|
+  | Segments | 6 |
+  | **User cycles** | **5,815,089** |
+  | **Proving cycles (sum of 2^po2)** | **6,291,456** |
+  | **Budget consumed** | **18.75 %** |
+
+  Measured by `crates/cu-bench/tests/deep_gate_rejects.rs::report_the_deep_gate_cycle_cost`, which runs the deployed `attestation_verifier_deep.bin` through the sequencer's own executor. Reproduce with:
+
+  ```bash
+  cargo test -p attestation-cu-bench --test deep_gate_rejects -- --ignored --nocapture
+  ```
+
+  The deep gate costs about 141k more user cycles than the shallow one, which is the witness decode plus the three added bindings; both land in the same 2^po2 bucket, so the budget percentage is unchanged. **This figure is the guest's own execution only.** It excludes the privacy circuit's recursive `env::verify` of the chained attestation call, which is LEZ's cost rather than this instruction's, and which is not charged against `MAX_NUM_CYCLES_PUBLIC_EXECUTION`.

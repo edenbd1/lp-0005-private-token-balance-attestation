@@ -260,17 +260,25 @@ fn the_honest_call_is_accepted() {
         .expect("a consistent, fully funded call must pass the gate");
 }
 
-/// The attack the review described, in full.
+/// The attack the review described, and the honest account of what stops it.
 ///
 /// The attacker holds nothing and enforces nothing: balance 0, floor 0, a
-/// one-leaf tree over their own fabricated commitment, their own context. Under
-/// the original gate this produced a marker byte-identical to an honest one.
+/// one-leaf tree over their own fabricated commitment, their own context. Every
+/// in-guest check passes, and this test asserts that it passes — a gate that
+/// enforces a floor of zero has nothing to reject. Naming this "rejected" would
+/// be a lie, and an earlier revision of this file did exactly that.
 ///
-/// It must now fail. And even if it did not, the marker would land at an address
-/// derived from floor 0, which no integrator demanding a real floor would look at
-/// (see `attestation-core/tests/gate_tag.rs`).
+/// What stops the attack is that the resulting marker lands at an address derived
+/// from floor 0. An integrator demanding a real floor computes a different
+/// address and finds nothing there. Under the original gate, seeded by the bare
+/// nullifier, both landed at the *same* address, which is what made a
+/// zero-balance account indistinguishable from an honest one.
+///
+/// So the defense is address separation, not rejection. Both halves are asserted
+/// below: the call is accepted, and the marker it would claim is not the one an
+/// honest floor produces.
 #[test]
-fn a_zero_balance_attacker_enforcing_nothing_is_rejected() {
+fn a_zero_floor_attacker_is_accepted_but_lands_at_a_different_marker() {
     let mut s = Scenario::honest();
     s.witness.balance = 0;
     s.threshold = 0;
@@ -291,9 +299,12 @@ fn a_zero_balance_attacker_enforcing_nothing_is_rejected() {
     let leaf_hash: [u8; 32] = Sha256::digest(commitment).into();
     s.merkle_root = fold_merkle_path(&leaf_hash, s.witness.leaf_index, &s.witness.merkle_path);
 
-    // The gate accepts this only in the sense that it enforces nothing, which is
-    // why the marker address must record the floor. What must NOT happen is this
-    // call landing at the address an honest floor produces.
+    // Run it against the deployed binary. It is accepted: a floor of zero is met
+    // by a balance of zero. Asserting this rather than hiding it is the point.
+    s.run()
+        .expect("a gate enforcing a floor of zero has nothing to reject");
+
+    // The defense is that this marker is not the one an honest floor produces.
     let honest = Scenario::honest();
     let attacker_nullifier = compute_nullifier(&s.pubkey, &s.context_id, &account_id);
     let honest_nullifier = compute_nullifier(
@@ -383,4 +394,95 @@ fn a_context_mismatch_is_rejected() {
     s.expected_context_id = [0x55u8; 32];
 
     s.run().expect_err("a credential for another gate must be rejected");
+}
+
+/// Measure what the deep gate's `gated_check` actually costs on chain.
+///
+/// `docs/benchmarks/cu-budget.md` measured only the shallow gate, on the grounds
+/// that the deep path's chained call was re-executed host-side rather than
+/// composed. That rationale went stale the moment the deep gate was deployed and
+/// confirmed on the privacy path, so the number is measured here.
+///
+/// This is the guest's own execution, which is the part this program controls; it
+/// excludes the privacy circuit's recursive verification of the chained call,
+/// which is LEZ's cost and not attributable to this instruction.
+///
+/// Run with: `cargo test -p attestation-cu-bench --test deep_gate_rejects -- --ignored --nocapture`
+#[test]
+#[ignore = "reports a measurement rather than asserting a property"]
+fn report_the_deep_gate_cycle_cost() {
+    use k256::ecdsa::{signature::Signer, Signature};
+
+    let s = Scenario::honest();
+    let elf = elf();
+    let pid = program_id(&elf);
+
+    let attested_id = derive_account_id(&s.witness.npk, s.witness.identifier);
+    let nullifier = compute_nullifier(&s.pubkey, &s.context_id, &attested_id);
+    let gate_tag = compute_gate_tag(&nullifier, s.seed_floor, &s.expected_context_id);
+    let nonce = [9u8; 32];
+    let digest = challenge_digest(
+        &nonce,
+        &s.merkle_root,
+        s.threshold,
+        &s.context_id,
+        &s.pubkey,
+        &nullifier,
+    );
+    let sig: Signature = s.signing_key.sign(digest.as_slice());
+
+    let instruction = DeepInstruction::GatedCheck {
+        witness_words: risc0_zkvm::serde::to_vec(&s.witness).unwrap(),
+        merkle_root: s.merkle_root,
+        threshold: s.threshold,
+        context_id: s.context_id,
+        presenter_pubkey: s.pubkey.to_vec(),
+        nullifier,
+        presenter_nonce: nonce,
+        presenter_signature_der: sig.to_der().as_bytes().to_vec(),
+        expected_context_id: s.expected_context_id,
+        minimum_threshold: s.minimum_threshold,
+        gate_tag,
+    };
+
+    let pre_states = vec![
+        AccountWithMetadata {
+            account: Account::default(),
+            is_authorized: false,
+            account_id: marker_pda(&pid, &gate_tag),
+        },
+        AccountWithMetadata {
+            account: Account {
+                program_owner: s.presenter_owner,
+                balance: s.presenter_balance,
+                data: Default::default(),
+                nonce: lee_core::account::Nonce(3),
+            },
+            is_authorized: true,
+            account_id: AccountId::new(s.presenter_account_id),
+        },
+    ];
+
+    let caller: Option<ProgramId> = None;
+    let instruction_data = risc0_zkvm::serde::to_vec(&instruction).unwrap();
+
+    let mut builder = ExecutorEnv::builder();
+    builder.session_limit(Some(MAX_NUM_CYCLES_PUBLIC_EXECUTION));
+    builder.write(&pid).unwrap();
+    builder.write(&caller).unwrap();
+    builder.write(&pre_states).unwrap();
+    builder.write(&instruction_data).unwrap();
+    let env = builder.build().unwrap();
+
+    let session = default_executor().execute(env, &elf).unwrap();
+
+    let user_cycles: u64 = session.segments.iter().map(|s| u64::from(s.cycles)).sum();
+    let proving_cycles: u64 = session.segments.iter().map(|s| 1u64 << s.po2).sum();
+    let pct = (proving_cycles as f64 / MAX_NUM_CYCLES_PUBLIC_EXECUTION as f64) * 100.0;
+
+    println!("deep gate gated_check, guest execution only");
+    println!("  segments        {}", session.segments.len());
+    println!("  user cycles     {user_cycles}");
+    println!("  proving cycles  {proving_cycles}");
+    println!("  budget consumed {pct:.2} % of {MAX_NUM_CYCLES_PUBLIC_EXECUTION}");
 }

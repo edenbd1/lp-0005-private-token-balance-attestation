@@ -179,21 +179,33 @@ Each proof commits to a public `context_id` (program ID, group ID, or applicatio
 
 A proof commits publicly to a `presenter_pubkey`. The presenter must sign a verifier-supplied nonce with the corresponding private key to be accepted. This prevents a third party who obtains a proof from using it as their own. We use a standard ECDSA pubkey (Risc0 has a native accelerator) rather than a Poseidon-based RLN-style id-commitment, to avoid paying Poseidon cycles on top of the SHA-256-heavy commitment reconstruction.
 
-### Context binding
+## A note on the LEZ source citations
 
-Each proof commits to a public `context_id` (program ID, group ID, or application identifier) to prevent replay across gates.
+Claims in this repository cite LEZ by file and line, e.g.
+`lee/state_machine/src/program.rs:73-77`. **Those paths resolve against
+`logos-execution-zone` at tag `v0.2.0`**, which is the release the public testnet
+runs and the one this project builds against.
 
-### Identity binding (presenter-bound proofs)
+They do *not* resolve inside the vendored `_external/lez/` checkout, which is an
+earlier commit (`5543e12`) predating the `nssa/` to `lee/` rename and kept only
+for the handful of paths that are cited as `nssa/...`. To follow a `lee/...`
+citation:
 
-A proof commits publicly to a `presenter_pubkey`. The presenter must sign a verifier-supplied nonce with the corresponding private key to be accepted. This prevents a third party who obtains a proof from using it as their own.
+```bash
+git clone https://github.com/logos-blockchain/logos-execution-zone.git
+cd logos-execution-zone && git checkout v0.2.0
+```
 
 ## Components
 
 | Component | Path | Description |
 |---|---|---|
-| Risc0 circuit | `circuit/` | Guest code proving `balance >= N` + Merkle + bindings |
-| On-chain verifier | `programs/verifier/` | LEZ Rust program, SPEL IDL |
-| Off-chain verifier | `crates/verifier/` | Local proof validation library |
+| Risc0 circuit | `crates/attestation-circuit/` | Guest code proving `balance >= N` + Merkle + bindings. `methods/guest-lez/` is the LEZ-native program the deep gate chains to |
+| Shared primitives | `crates/attestation-core/` | Commitment, account id, nullifier and gate-tag derivations, shared by host and guests |
+| On-chain verifier | `crates/verifier-program-spel/` | SPEL `#[lez_program]` guests. `methods/guest-deep/` is the deployed deep gate |
+| Off-chain verifier | `crates/verifier-offchain/` | Local proof validation library |
+| Sequencer client | `crates/sequencer-client/` | Membership proofs and root-freshness checks over the LEZ JSON-RPC |
+| CU benchmark | `crates/cu-bench/` | Replays the sequencer's own execution to measure real on-chain cost, and hosts the deep-gate rejection tests |
 | Client SDK | `crates/sdk/` | Proof generation + transport (on-chain & Logos Messaging) |
 | CLI | `crates/cli/` | `prove`, `submit`, `send`, `verify` |
 | Basecamp app | `app/` | GUI for end users |

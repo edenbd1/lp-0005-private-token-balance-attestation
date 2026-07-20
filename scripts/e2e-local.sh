@@ -8,16 +8,36 @@
 #    local sequencer with RISC0_DEV_MODE=0."
 #
 # Unlike scripts/demo.sh, which checks already-deployed transactions on the
-# public testnet, this script proves the whole pipeline from an empty chain:
+# public testnet, this script exercises the pipeline from an empty chain:
 #
 #   1. boot a standalone sequencer on a throwaway data dir
 #   2. initialise the genesis signer account
-#   3. deploy all three programs and wait for each to land
+#   3. deploy three programs and wait for each to land
 #   4. generate a REAL Risc0 attestation proof (RISC0_DEV_MODE=0)
 #   5. draw a challenge, sign it, verify off-chain
 #   6. submit gated_check on chain and require it to CONFIRM
 #
 # Every step must succeed or the script exits non-zero.
+#
+# SCOPE — READ THIS BEFORE CITING THE SCRIPT AS EVIDENCE.
+#
+# The gated_check submitted at step 6 is against the SHALLOW gate, on a public
+# transaction. The shallow gate verifies no zero-knowledge proof, and no program
+# on the public path could: a LEZ public transaction re-executes host-side rather
+# than proving (lee/state_machine/src/program.rs:73-77). So this script proves
+# that deployment, proving, signing, submission and confirmation all work against
+# a real sequencer. It does NOT exercise the deep gate, and it is not evidence
+# that the proof is verified on chain.
+#
+# The deep gate is covered in two other places, deliberately not here, because a
+# privacy-preserving submission needs twenty-plus minutes of proving:
+#
+#   * crates/cu-bench/tests/deep_gate_rejects.rs runs the DEPLOYED deep binary
+#     through the sequencer's own execution path and requires each of
+#     3009/3010/3011/3012 to fire on the corresponding forged input, with the
+#     honest call accepted as the control. This runs in CI on every push.
+#   * scripts/verify-onchain-proof.sh checks the real privacy-preserving
+#     gated_check on the public testnet from public data alone.
 #
 # Required in PATH or via env:
 #   SEQUENCER_BIN  sequencer_service built with --features standalone
@@ -148,7 +168,7 @@ for b in "$ATT_BIN" "$V2_BIN" "$V3_BIN"; do
   "$WALLET_BIN" deploy-program "$b" >/dev/null 2>&1
 done
 wait_for_tx "$(deploy_tx_hash "$ATT_BIN")" "attestation circuit"
-wait_for_tx "$(deploy_tx_hash "$V2_BIN")"  "verifier v2 (deep gate)"
+wait_for_tx "$(deploy_tx_hash "$V2_BIN")"  "verifier v2 (superseded, not the deep gate)"
 wait_for_tx "$(deploy_tx_hash "$V3_BIN")"  "verifier v3 (shallow gate)"
 echo
 

@@ -9,3 +9,18 @@ updates:
     ignore:
       - dependency-name: "risc0-*"
       - dependency-name: "ruint"
+      # Pinned by `[patch.crates-io]` in the guest manifests to Risc0's forks —
+      # `sha2-v0.10.8-risczero.0` and the accelerated `rand_core` — so cargo can
+      # only ever select that version. Dependabot cannot know that: it proposed a
+      # bump, cargo answered "failed to select a version", and the updater job has
+      # failed on every weekly run since 2026-07-23. A scheduled job that always
+      # fails is worse than a noisy one, because it teaches a reader to ignore the
+      # next failure that means something.
+      - dependency-name: "sha2"
+      - dependency-name: "rand_core"
+      # k256 0.14 is a breaking API change this crate does not build against — one
+      # E0599 and three E0277 on the host-only job. Ignored at the major version
+      # rather than proposed weekly and left red; a deliberate migration can still
+      # take it by hand.
+      - dependency-name: "k256"
+        update-types: ["version-update:semver-major"]

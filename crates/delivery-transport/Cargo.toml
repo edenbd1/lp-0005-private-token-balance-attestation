@@ -14,7 +14,7 @@ sha2 = { workspace = true, features = ["std"] }
 thiserror = "1"
 async-trait = "0.1"
 bincode = { version = "2", features = ["serde"] }
-ureq = { version = "2", features = ["json"] }
+ureq = { version = "3", features = ["json"] }
 serde_json = "1"
 
 [features]

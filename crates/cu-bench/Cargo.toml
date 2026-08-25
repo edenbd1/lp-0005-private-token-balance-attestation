@@ -19,7 +19,7 @@ clap       = { version = "4", features = ["derive"] }
 hex        = "0.4"
 serde      = { version = "1", features = ["derive"] }
 serde_json = "1"
-ureq       = { version = "2", features = ["json"] }
+ureq       = { version = "3", features = ["json"] }
 
 [dev-dependencies]
 attestation-core = { path = "../attestation-core" }

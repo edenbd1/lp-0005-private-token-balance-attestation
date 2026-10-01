@@ -9,7 +9,7 @@ publish     = false
 [dependencies]
 # The exact LEZ types the sequencer feeds a program guest, pinned to the tag the
 # public testnet runs. `host` brings in the constructors we need.
-lee_core = { git = "https://github.com/logos-blockchain/logos-execution-zone.git", tag = "v0.2.0", features = ["host"] }
+lee_core = { git = "https://github.com/logos-blockchain/logos-execution-zone.git", tag = "v0.2.4", features = ["host"] }
 
 risc0-zkvm   = { workspace = true, features = ["client"] }
 risc0-binfmt = "3.0"
